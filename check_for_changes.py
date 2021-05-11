@@ -4,6 +4,14 @@ import time
 import win32file
 import win32con
 
+from PyQt5 import QtCore, QtGui, QtWidgets, uic
+import time
+import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from display_image_widget import DisplayImageWidget
 
 ACTIONS = {
     1 : "Created",
@@ -15,60 +23,145 @@ ACTIONS = {
 # Thanks to Claudio Grondi for the correct set of numbers
 FILE_LIST_DIRECTORY = 0x0001
 
-path_to_watch = "d:\\repo\\CameraProcess\\images"
-files_to_watch = {}
-target_size = 2998
+# see https://www.learnpyqt.com/tutorials/multithreading-pyqt-applications-qthreadpool/
+# for the particular style of coding up the multithreading using PyQt5:
+class SignalsDefines(QtCore.QObject):
+    """ this is needed since PyQt requires an object to be a subclass of QObject
+    in order to define signals, but QRunnable is not. """
+    newFile = QtCore.pyqtSignal(object)
 
-hDir = win32file.CreateFile (
-    path_to_watch,
-    FILE_LIST_DIRECTORY,
-    win32con.FILE_SHARE_READ | win32con.FILE_SHARE_WRITE | win32con.FILE_SHARE_DELETE,
-    None,
-    win32con.OPEN_EXISTING,
-    win32con.FILE_FLAG_BACKUP_SEMANTICS,
-    None
-)
-queue.Queue(maxsize=1000)
+class DirectoryWatcherWorker(QtCore.QRunnable):
+    """
+    Worker thread
+    """
+    def __init__(self, path_to_watch, target_size):
+        super().__init__()
+        self.signals     = SignalsDefines()
 
-while 1:
-    #
-    # ReadDirectoryChangesW takes a previously-created
-    # handle to a directory, a buffer size for results,
-    # a flag to indicate whether to watch subtrees and
-    # a filter of what changes to notify.
-    #
-    # NB Tim Juchcinski reports that he needed to up
-    # the buffer size to be sure of picking up all
-    # events when a large number of files were
-    # deleted at once.
-    #
-    results = win32file.ReadDirectoryChangesW (
-        hDir,
-        int(1e6),
-        True,
-        win32con.FILE_NOTIFY_CHANGE_FILE_NAME |
-        # win32con.FILE_NOTIFY_CHANGE_DIR_NAME |
-        # win32con.FILE_NOTIFY_CHANGE_ATTRIBUTES |
-        win32con.FILE_NOTIFY_CHANGE_SIZE,
-        # win32con.FILE_NOTIFY_CHANGE_LAST_WRITE |
-        # win32con.FILE_NOTIFY_CHANGE_SECURITY,
-        None,
-        None
-    )
+        # semaphore used to stop the thread
+        self.stop_flag = False
+
+        self.path_to_watch = path_to_watch
+        self.target_size = target_size
+        
+        self.files_to_watch = {}
+
+        self.hDir = win32file.CreateFile (
+            self.path_to_watch,
+            FILE_LIST_DIRECTORY,
+            win32con.FILE_SHARE_READ | win32con.FILE_SHARE_WRITE | win32con.FILE_SHARE_DELETE,
+            None,
+            win32con.OPEN_EXISTING,
+            win32con.FILE_FLAG_BACKUP_SEMANTICS,
+            None
+        )
+
+    def stop(self):
+        """ call this from the gui thread in order to stop the processing in the worker thread """
+        self.stop_flag = True
+
+    @QtCore.pyqtSlot()
+    def run(self):
+        print("DirectoryWatcherWorker: run()")
+        while True:
+            if self.stop_flag:
+                print("DirectoryWatcherWorker: Received stop flag, thread will close.")
+                break
+            #
+            # ReadDirectoryChangesW takes a previously-created
+            # handle to a directory, a buffer size for results,
+            # a flag to indicate whether to watch subtrees and
+            # a filter of what changes to notify.
+            #
+            # NB Tim Juchcinski reports that he needed to up
+            # the buffer size to be sure of picking up all
+            # events when a large number of files were
+            # deleted at once.
+            #
+            results = win32file.ReadDirectoryChangesW (
+                self.hDir,
+                int(1e6),
+                True,
+                win32con.FILE_NOTIFY_CHANGE_FILE_NAME |
+                # win32con.FILE_NOTIFY_CHANGE_DIR_NAME |
+                # win32con.FILE_NOTIFY_CHANGE_ATTRIBUTES |
+                win32con.FILE_NOTIFY_CHANGE_SIZE,
+                # win32con.FILE_NOTIFY_CHANGE_LAST_WRITE |
+                # win32con.FILE_NOTIFY_CHANGE_SECURITY,
+                None,
+                None
+            )
+            print(results)
+
+            for action, file in results:
+                full_filename = os.path.join(self.path_to_watch, file)
+                self.files_to_watch[full_filename] = 1
+
+            for file in self.files_to_watch:
+                try:
+                    size = os.path.getsize(file)
+                    if size == self.target_size:
+                        print("%s: %d" % (file, size))
+                        self.signals.newFile.emit(file)
+
+                except OSError as e:
+                    print("%s: OSError: %s" % (file, e.strerror))
+
+        print("DirectoryWatcherWorker: closing down.")
 
 
-    bRunZip = False
-    for action, file in results:
-        full_filename = os.path.join (path_to_watch, file)
-        files_to_watch[full_filename] = 1
+class TestWidget(QtWidgets.QWidget):
 
-    for file in files_to_watch:
-        try:
-            size = os.path.getsize(file)
-            if size == target_size:
-                print("%s: %d" % (file, size))
-                
-                q.put(file)
-        except OSError as e:
-            print("%s: OSError: %s" % (file, e.strerror))
+    def __init__(self, *args, **kwargs):
+        """  """
+        super().__init__()
+        self.setupWorkerThread(*args, **kwargs)
+        self.path_to_watch = args[0]
+
+        self.w = DisplayImageWidget()
+        self.w.resize(600, 600)
+        
+        self.hbox = QtWidgets.QHBoxLayout()
+        self.hbox.addWidget(self.w)
+
+        self.setLayout(self.hbox)
+
+    def setupWorkerThread(self, *args, **kwargs):
+        self.worker = DirectoryWatcherWorker(*args, **kwargs)
+        self.worker.signals.newFile.connect(self.newFile)
+        # from https://stackoverflow.com/a/60977476
+        threadpool = QtCore.QThreadPool.globalInstance()
+        print("Multithreading with maximum %d threads" % threadpool.maxThreadCount())
+        threadpool.start(self.worker)
+
+    @QtCore.pyqtSlot(object)
+    def newFile(self, filename):
+        print("new file: %s" % filename)
+        self.w.load_image_from_file(filename, use_opencv=True)
+        # I = plt.imread(filename)
+
+    def closeEvent(self, event):
+        # print("closeEvent")
+        if self.worker is not None:
+            self.worker.stop()
+        stop_file = os.path.join(self.path_to_watch, "stop.txt")
+        if os.path.exists(stop_file):
+            os.remove(stop_file)
+        with open(stop_file, "w"):
+            pass
+        os.remove(stop_file)
+        event.accept()
+
+def main():
+    path_to_watch = "d:\\repo\\CameraProcess\\images"
+    target_size = 2998
+
+    app = QtWidgets.QApplication(sys.argv)
+    gui = TestWidget(path_to_watch, target_size)
+    gui.show()
+    app.exec_()
+
+if __name__ == '__main__':
+    main()
+
 

@@ -10,6 +10,7 @@ class DisplayImageWidget(QtWidgets.QWidget):
         super().__init__(parent)
         self.ROI = None
         self.qimg = None
+        self.displayed_qimg = None
 
     def setTransform(self, painter):
         pass # just exists so that we can override this later in a subclass
