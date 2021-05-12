@@ -16,7 +16,7 @@ import cv2
 
 from display_image_widget import DisplayImageWidget
 from check_for_changes import DirectoryWatcherWorker
-
+import qt_helpers
 
 class CameraProcessor(QtWidgets.QMainWindow):
 
@@ -31,6 +31,8 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.N_accum_target = 10
         self.max_val        = 2**16
         self.min_val        = 0
+        self.I_subtract     = None
+        self.I_avg          = None
 
         self.setupUI()
 
@@ -42,11 +44,35 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.w = DisplayImageWidget()
         self.w.resize(600, 600)
 
-        # self.hbox = QtWidgets.QHBoxLayout()
-        # self.hbox.addWidget(self.w)
+        self.lblN        = QtWidgets.QLabel('Frames to average:')
+        self.lblMin      = QtWidgets.QLabel('min:')
+        self.lblMax      = QtWidgets.QLabel('max:')
+        self.editN       = QtWidgets.QLineEdit('10')
+        self.editMin     = QtWidgets.QLineEdit('0')
+        self.editMax     = QtWidgets.QLineEdit('%d' % 2**16)
+        self.btnBck      = QtWidgets.QPushButton('Set as background img')
+        self.chkSubtract = QtWidgets.QCheckBox('Subtract bck img')
 
-        # self.setLayout(self.hbox)
-        self.setCentralWidget(self.w)
+        hbox = QtWidgets.QHBoxLayout()
+        hbox.addWidget(self.lblN)
+        hbox.addWidget(self.lblMin)
+        hbox.addWidget(self.lblMax)
+        hbox.addWidget(self.editN)
+        hbox.addWidget(self.editMin)
+        hbox.addWidget(self.editMax)
+        hbox.addWidget(self.btnBck)
+        hbox.addWidget(self.chkSubtract)
+
+        vbox = QtWidgets.QVBoxLayout()
+        vbox.addLayout(hbox)
+        vbox.addWidget(self.w)
+
+        central = QtWidgets.QWidget()
+        central.setLayout(vbox)
+        self.setCentralWidget(central)
+
+        connections_list = qt_helpers.connect_signals_to_slots(self)
+        self.setWindowTitle('Camera Processor')
         self.resize(600, 600)
 
     def createStatusBar(self):
@@ -72,6 +98,25 @@ class CameraProcessor(QtWidgets.QMainWindow):
         print("Multithreading with maximum %d threads" % threadpool.maxThreadCount())
         threadpool.start(self.worker)
 
+    def editMin_editingFinished(self):
+        self.updateMinMax()
+
+    def editMax_editingFinished(self):
+        self.updateMinMax()
+
+    def editN_editingFinished(self):
+        N = int(float(eval(self.editN.text())))
+        if N > 0:
+            self.N_accum_target = N
+
+    def btnBck_clicked(self):
+        self.I_subtract = self.I_avg
+
+    def updateMinMax(self):
+        self.min_val = int(float(eval(self.editMin.text())))
+        self.max_val = int(float(eval(self.editMax.text())))
+        self.showAvg()
+
     def accum(self, I_uint16):
         if self.I_accum is None or self.N_accum == 0:
             self.accumInit(I_uint16)
@@ -82,20 +127,23 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.status_bar_fields["pb"].setValue(self.N_accum)
 
         if self.N_accum == self.N_accum_target:
-            self.showAccum()
+            self.I_avg = self.I_accum/self.N_accum
+            self.showAvg()
             self.accumInit(I_uint16)
 
     def accumInit(self, I_uint16):
         self.I_accum = np.zeros(I_uint16.shape[0:2], dtype=np.int64)
         self.N_accum = 0
 
-    def showAccum(self):
-        if self.N_accum == 0:
-            return
-
+    def showAvg(self):
         bits_out = 8
-        self.I_avg = self.I_accum/self.N_accum
-        I = (self.I_avg - self.min_val) * (2**bits_out-1)/(self.max_val-self.min_val)
+
+        if self.chkSubtract.isChecked() and self.I_subtract is not None:
+            I_subtracted = self.I_avg - self.I_subtract
+        else:
+            I_subtracted = self.I_avg
+
+        I = (I_subtracted - self.min_val) * (2**bits_out-1)/(self.max_val-self.min_val)
 
         np.clip(I, 0, 2**bits_out-1, out=I)
         I_uint8 = I.astype(np.uint8)
@@ -162,6 +210,8 @@ class CameraProcessor(QtWidgets.QMainWindow):
         data = np.zeros((600, 600), dtype=np.uint16)
         N_pixels = 10
         self.testIteration += N_pixels
+        if self.testIteration+N_pixels > data.shape[1]:
+            self.testIteration = 0
         data[0:N_pixels, self.testIteration:(self.testIteration+N_pixels)] = 2**15
         im = Image.fromarray(data)
         im.save(filename)
@@ -175,11 +225,12 @@ def main():
     app = QtWidgets.QApplication(sys.argv)
     gui = CameraProcessor(path_to_watch, target_size)
     gui.show()
-    gui.startTestMode()
+    if len(sys.argv) > 1 and sys.argv[1] == "test":
+        gui.startTestMode()
     app.exec_()
 
 if __name__ == '__main__':
     main()
 
-    # python D:\Repo\CameraProcess\camera_processor.py
+    # python D:\Repo\CameraProcess\camera_processor.py test
 
