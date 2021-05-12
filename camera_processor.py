@@ -33,6 +33,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.min_val        = 0
         self.I_subtract     = None
         self.I_avg          = None
+        self.file_count     = 0
 
         self.setupUI()
 
@@ -71,6 +72,8 @@ class CameraProcessor(QtWidgets.QMainWindow):
         central.setLayout(vbox)
         self.setCentralWidget(central)
 
+        self.editN_editingFinished()
+
         connections_list = qt_helpers.connect_signals_to_slots(self)
         self.setWindowTitle('Camera Processor')
         self.resize(600, 600)
@@ -79,8 +82,6 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.status_bar_fields = OrderedDict()
         self.status_bar_fields["filename"] = QtWidgets.QLabel('')
         self.status_bar_fields["pb"] = QtWidgets.QProgressBar()
-        self.status_bar_fields["pb"].setMaximum(self.N_accum_target)
-        self.status_bar_fields["pb"].setFormat('%%v/%d' % self.N_accum_target)
 
         # self.statusBar = QtWidgets.QStatusBar()
         for k, w in self.status_bar_fields.items():
@@ -108,9 +109,12 @@ class CameraProcessor(QtWidgets.QMainWindow):
         N = int(float(eval(self.editN.text())))
         if N > 0:
             self.N_accum_target = N
+            self.status_bar_fields["pb"].setMaximum(self.N_accum_target)
+            self.status_bar_fields["pb"].setFormat('%%v/%d' % self.N_accum_target)
 
     def btnBck_clicked(self):
         self.I_subtract = self.I_avg
+        self.showAvg()
 
     def updateMinMax(self):
         self.min_val = int(float(eval(self.editMin.text())))
@@ -124,9 +128,10 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.I_accum += I_uint16
         self.N_accum += 1
 
-        self.status_bar_fields["pb"].setValue(self.N_accum)
+        if self.N_accum <= self.status_bar_fields["pb"].maximum():
+            self.status_bar_fields["pb"].setValue(self.N_accum)
 
-        if self.N_accum == self.N_accum_target:
+        if self.N_accum >= self.N_accum_target:
             self.I_avg = self.I_accum/self.N_accum
             self.showAvg()
             self.accumInit(I_uint16)
@@ -136,16 +141,23 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.N_accum = 0
 
     def showAvg(self):
-        bits_out = 8
+        bits_out_display = 8
+        bits_out_save = 16
+
+        I_save = np.clip(self.I_avg, 0, (2**bits_out_save-1))
+        I_save = I_save.astype(np.uint16)
+        self.file_count += 1
+        out_filename = 'images\\avg_%08d.tiff' % self.file_count
+        plt.imsave(out_filename, I_save)
 
         if self.chkSubtract.isChecked() and self.I_subtract is not None:
             I_subtracted = self.I_avg - self.I_subtract
         else:
             I_subtracted = self.I_avg
 
-        I = (I_subtracted - self.min_val) * (2**bits_out-1)/(self.max_val-self.min_val)
+        I = (I_subtracted - self.min_val) * (2**bits_out_display-1)/(self.max_val-self.min_val)
 
-        np.clip(I, 0, 2**bits_out-1, out=I)
+        np.clip(I, 0, 2**bits_out_display-1, out=I)
         I_uint8 = I.astype(np.uint8)
         I_rgb = cv2.cvtColor(I_uint8, cv2.COLOR_GRAY2RGB)
         self.w.update_image(I_rgb)
@@ -153,7 +165,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot(object)
     def newFile(self, filename):
-        print("new file: %s" % filename)
+        # print("new file: %s" % filename)
         try:
             I = plt.imread(filename)
             self.status_bar_fields["filename"].setText(os.path.basename(filename))
@@ -170,8 +182,10 @@ class CameraProcessor(QtWidgets.QMainWindow):
         # self.w.update_image(I_rgb)
         # self.w.update()
 
-
-        os.remove(filename)
+        try:
+            os.remove(filename)
+        except PermissionError as e:
+            print(e)
         # try:
         #     I = plt.imread(filename)
         #     self.w.update_image(I)
@@ -219,8 +233,8 @@ class CameraProcessor(QtWidgets.QMainWindow):
 
 def main():
 
-    path_to_watch = "d:\\repo\\CameraProcess\\images"
-    target_size = 720122
+    path_to_watch = "d:\\"
+    target_size = 655534
 
     app = QtWidgets.QApplication(sys.argv)
     gui = CameraProcessor(path_to_watch, target_size)

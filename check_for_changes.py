@@ -93,7 +93,7 @@ class DirectoryWatcherWorker(QtCore.QRunnable):
                 None,
                 None
             )
-            print(results)
+            # print(results)
 
             for action, file in results:
                 if ACTIONS[action] == 'Updated':
@@ -104,7 +104,7 @@ class DirectoryWatcherWorker(QtCore.QRunnable):
                 try:
                     size = os.path.getsize(file)
                     if size == self.target_size:
-                        print("%s: %d (correct)" % (file, size))
+                        # print("%s: %d (correct)" % (file, size))
                         self.signals.newFile.emit(file)
                     else:
                         print("%s: %d (incorrect)" % (file, size))
