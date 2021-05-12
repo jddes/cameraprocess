@@ -125,19 +125,7 @@ class TestWidget(QtWidgets.QWidget):
         self.setupWorkerThread(*args, **kwargs)
         self.path_to_watch = args[0]
 
-        self.I_accum = None
-        self.N_accum = 0
-        self.N_accum_target = 10
-        self.max_val = 2**16
-        self.min_val = 0
-
-        self.w = DisplayImageWidget()
-        self.w.resize(600, 600)
-        
-        self.hbox = QtWidgets.QHBoxLayout()
-        self.hbox.addWidget(self.w)
-
-        self.setLayout(self.hbox)
+        self.resize(600, 600)
 
         self.startTestMode()
 
@@ -149,63 +137,13 @@ class TestWidget(QtWidgets.QWidget):
         print("Multithreading with maximum %d threads" % threadpool.maxThreadCount())
         threadpool.start(self.worker)
 
-    def accum(self, I_uint16):
-        if self.I_accum is None or self.N_accum == 0:
-            self.accumInit(I_uint16)
-
-        self.I_accum += I_uint16
-        self.N_accum += 1
-
-        if self.N_accum == self.N_accum_target:
-            self.showAccum()
-            self.accumInit(I_uint16)
-
-    def accumInit(self, I_uint16):
-        self.I_accum = np.zeros(I_uint16.shape[0:2], dtype=np.int64)
-        self.N_accum = 0
-
-    def showAccum(self):
-        if self.N_accum == 0:
-            return
-
-        bits_out = 8
-        self.I_avg = self.I_accum/self.N_accum
-        I = (self.I_avg - self.min_val) * (2**bits_out-1)/(self.max_val-self.min_val)
-
-        np.clip(I, 0, 2**bits_out-1, out=I)
-        I_uint8 = I.astype(np.uint8)
-        I_rgb = cv2.cvtColor(I_uint8, cv2.COLOR_GRAY2RGB)
-        self.w.update_image(I_rgb)
-        self.w.update()
-
     @QtCore.pyqtSlot(object)
     def newFile(self, filename):
         print("new file: %s" % filename)
-        try:
-            I = plt.imread(filename)
-        except FileNotFoundError:
+        if not os.path.exists(filename):
             return
-        self.accum(I)
-        # self.showAccum()
-
-        # print(I.shape)
-        # print(I.dtype)
-        # print(cv2.COLOR_GRAY2RGB)
-        # I = (I/2**(16-8)).astype(np.uint8)
-        # I_rgb = cv2.cvtColor(I, cv2.COLOR_GRAY2RGB)
-        # self.w.update_image(I_rgb)
-        # self.w.update()
-
-
+        # TODO: do something with the file before deleting it
         os.remove(filename)
-        # try:
-        #     I = plt.imread(filename)
-        #     self.w.update_image(I)
-        #     # self.w.load_image_from_file(filename, use_opencv=True)
-        #     self.w.update()
-        #     os.remove(filename)
-        # except Exception as e:
-        #     print(e)
 
     def closeEvent(self, event):
         # print("closeEvent")
