@@ -67,7 +67,9 @@ class DisplayImageWidget(QtWidgets.QWidget):
         """ img must implement either the same interface as an opencv "cv::Mat" object, or a "PyQt5.QtGui.QImage" object """
         if isinstance(img, np.ndarray):
             # img could be an opencv::Mat: need to do additional conversions
-            self.qimg = QtGui.QImage(img.data, img.shape[1], img.shape[0], QtGui.QImage.Format_RGB888).rgbSwapped()
+            # self.qimg = QtGui.QImage(img.data, img.shape[1], img.shape[0], QtGui.QImage.Format_RGB888).rgbSwapped()
+            self.qimg = QtGui.QImage(img.data, img.shape[1], img.shape[0], QtGui.QImage.Format_RGB888)
+            # self.qimg = QtGui.QImage(img.data, img.shape[1], img.shape[0], QtGui.QImage.Format_Grayscale16).rgbSwapped()
         else:
             self.qimg = img # assume that this is a qimg (duck-typing)
 
