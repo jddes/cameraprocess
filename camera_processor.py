@@ -1,9 +1,8 @@
 import os
 import time
 from collections import OrderedDict
-
-import win32file
-import win32con
+from importlib import reload
+import threading
 
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 import time
@@ -15,16 +14,20 @@ from PIL import Image
 import cv2
 
 from display_image_widget import DisplayImageWidget
-from check_for_changes import DirectoryWatcherWorker
 import qt_helpers
+import image_processor
+import sui_camera_constants as camera
+import ebus_reader
+import serial_widget
 
 class CameraProcessor(QtWidgets.QMainWindow):
 
     def __init__(self, *args, **kwargs):
         """  """
         super().__init__()
-        self.setupWorkerThread(*args, **kwargs)
         self.path_to_watch = args[0]
+
+        print("CameraProcessor main thread id: ", threading.get_native_id())
 
         self.I_accum        = None
         self.N_accum        = 0
@@ -35,47 +38,109 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.I_avg          = None
         self.file_count     = 0
 
+        self.imgProc = image_processor.ImageProcessor()
+        self.imgProc.img = None
+
+        self.ebusReader = ebus_reader.EbusReader(use_mock=True)
+
+        self.reply_buffer = ''
+
+        self.fileWatcher = QtCore.QFileSystemWatcher(["image_processor.py"])
+        self.fileWatcher.fileChanged.connect(self.fileWatcher_fileChanged)
+
         self.setupUI()
 
+        self.registers = {k: None for k in ['EXP', 'FRAME:PERIOD']}
 
+        # start polling timer for the serial reads:
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.pollSerial)
+        self.timer_period_ms = 100
+        self.timer.start(self.timer_period_ms)
+
+    def pollSerial(self):
+        if not self.ebusReader.connected:
+            return
+        N_TO_READ = 1000 # this must be less than pyebus_main.cpp:RX_BUFFER_SIZE (TODO: add this as a module constant)
+        reply = ebus_reader.ebus.readSerialPort(N_TO_READ, 1)
+        if reply != '':
+            print(repr(reply))
+            self.serialWidget.editConsole.appendPlainText(reply)
+            self.reply_buffer += reply
+            self.splitSerialTextInLines()
+
+    def splitSerialTextInLines(self):
+        pos = self.reply_buffer.find('\r')
+        while pos != -1:
+            full_line = self.reply_buffer[:pos+1]
+            self.parseSerialOutput(full_line)
+            self.reply_buffer = self.reply_buffer[pos+1:]
+            
+            pos = self.reply_buffer.find('\r')
+
+    def parseSerialOutput(self, line):
+        """ Called whenever the device replies one full line on its serial port.
+        Will parse out relevant info and display them in the GUI """
+        for reg_name in self.registers.keys():
+            header = reg_name + ' '
+            if line.startswith(header):
+                value = int(line[len(header):])
+                self.registers[reg_name] = value
+                self.registersUpdated()
+
+    def editExposureCount_editingFinished(self):
+        try:
+            user_val = int(round(float(eval(self.editExposureCount.text()))))
+        except:
+            return
+
+        EXP_register = user_val - camera.EXP_OFFSET
+        ebus_reader.ebus.writeSerialPort('EXP %d\r' % EXP_register)
+
+    def registersUpdated(self):
+        """ Called when the serial communication shows a new value of a register.
+        Updates our internal values and GUI """
+        try:
+            user_val = int(round(float(eval(self.editExposureCount.text()))))
+        except:
+            user_val = 0
+
+        self.lblExposureMSRequested.setText('%.3f ms' % (1e3*camera.countsToSeconds(user_val)))
+        self.lblExposureMSActual.setText(   '%.3f ms' % (1e3*camera.countsToSeconds(self.registers['EXP'] + camera.EXP_OFFSET)))
+        self.lblExposureCounts.setText(                                         str(self.registers['EXP'] + camera.EXP_OFFSET))
+
+    def fileWatcher_fileChanged(self, path):
+        print("fileWatcher_fileChanged: %s" % path)
+        old_obj = self.imgProc
+        reload(image_processor)
+        new_obj = image_processor.ImageProcessor()
+        # copy all attributes of the old object to the new one, except builtins or callables of course
+        for attr_name in dir(old_obj):
+            attr = getattr(old_obj, attr_name)
+            if not attr_name.startswith('__') and not callable(attr):
+                print("copying attribute '%s'" % attr_name)
+                setattr(new_obj, attr_name, attr)
+        self.imgProc = new_obj
 
     def setupUI(self):
+        uic.loadUi("main.ui", self)
         self.createStatusBar()
 
         self.w = DisplayImageWidget()
         self.w.resize(600, 600)
+        self.w.show()
 
-        self.lblN        = QtWidgets.QLabel('Frames to average:')
-        self.lblMin      = QtWidgets.QLabel('min:')
-        self.lblMax      = QtWidgets.QLabel('max:')
-        self.editN       = QtWidgets.QLineEdit('10')
-        self.editMin     = QtWidgets.QLineEdit('0')
-        self.editMax     = QtWidgets.QLineEdit('%d' % 2**16)
-        self.btnBck      = QtWidgets.QPushButton('Set as background img')
-        self.chkSubtract = QtWidgets.QCheckBox('Subtract bck img')
+        self.serialWidget = serial_widget.SerialWidget()
+        self.serialWidget.move(50, 200)
+        self.serialWidget.show()
 
-        hbox = QtWidgets.QHBoxLayout()
-        hbox.addWidget(self.lblN)
-        hbox.addWidget(self.lblMin)
-        hbox.addWidget(self.lblMax)
-        hbox.addWidget(self.editN)
-        hbox.addWidget(self.editMin)
-        hbox.addWidget(self.editMax)
-        hbox.addWidget(self.btnBck)
-        hbox.addWidget(self.chkSubtract)
-
-        vbox = QtWidgets.QVBoxLayout()
-        vbox.addLayout(hbox)
-        vbox.addWidget(self.w)
-
-        central = QtWidgets.QWidget()
-        central.setLayout(vbox)
-        self.setCentralWidget(central)
+        hbox = self.centralWidget().layout()
+        # hbox.addWidget(self.w)
 
         self.editN_editingFinished()
 
         connections_list = qt_helpers.connect_signals_to_slots(self)
-        self.setWindowTitle('Camera Processor')
+        self.setWindowTitle('eBUS Camera Processor')
         self.resize(600, 600)
 
     def createStatusBar(self):
@@ -91,13 +156,27 @@ class CameraProcessor(QtWidgets.QMainWindow):
                 stretch = 0
             self.statusBar().addPermanentWidget(w, stretch)
 
-    def setupWorkerThread(self, *args, **kwargs):
-        self.worker = DirectoryWatcherWorker(*args, **kwargs)
-        self.worker.signals.newFile.connect(self.newFile)
+    # def setupWorkerThreads(self, *args, **kwargs):
+    #     self.workers = list()
+    #     self.workers.append(DirectoryWatcherWorker(*args, **kwargs))
+    #     self.workers[-1].signals.newFile.connect(self.newFile)
+    #     # from https://stackoverflow.com/a/60977476
+    #     threadpool = QtCore.QThreadPool.globalInstance()
+    #     threadpool.start(self.workers[-1])
+
+    def btnConnect_clicked(self):
         # from https://stackoverflow.com/a/60977476
+        id_list = self.ebusReader.list_devices()
+        if len(id_list) > 1:
+            print("TODO: implement device selection instead of connecting to the first one available")
+        self.ebusReader.connect(id_list[0])
+        self.ebusReader.signals.newImage.connect(self.newImage)
+
         threadpool = QtCore.QThreadPool.globalInstance()
-        print("Multithreading with maximum %d threads" % threadpool.maxThreadCount())
-        threadpool.start(self.worker)
+        threadpool.start(self.ebusReader)
+
+    def btnDisconnect_clicked(self):
+        self.ebusReader.stop()
 
     def editMin_editingFinished(self):
         self.updateMinMax()
@@ -105,8 +184,14 @@ class CameraProcessor(QtWidgets.QMainWindow):
     def editMax_editingFinished(self):
         self.updateMinMax()
 
+    def chkAvg_clicked(self):
+        self.editN_editingFinished()
+
     def editN_editingFinished(self):
-        N = int(float(eval(self.editN.text())))
+        if self.chkAvg.isChecked():
+            N = int(float(eval(self.editN.text())))
+        else:
+            N = 1
         if N > 0:
             self.N_accum_target = N
             self.status_bar_fields["pb"].setMaximum(self.N_accum_target)
@@ -120,6 +205,9 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.min_val = int(float(eval(self.editMin.text())))
         self.max_val = int(float(eval(self.editMax.text())))
         self.showAvg()
+
+    def newImage(self, img):
+        self.accum(img)
 
     def accum(self, I_uint16):
         if self.I_accum is None or self.N_accum == 0:
@@ -142,13 +230,6 @@ class CameraProcessor(QtWidgets.QMainWindow):
 
     def showAvg(self):
         bits_out_display = 8
-        bits_out_save = 16
-
-        I_save = np.clip(self.I_avg, 0, (2**bits_out_save-1))
-        I_save = I_save.astype(np.uint16)
-        self.file_count += 1
-        out_filename = 'images\\avg_%08d.tiff' % self.file_count
-        plt.imsave(out_filename, I_save)
 
         if self.chkSubtract.isChecked() and self.I_subtract is not None:
             I_subtracted = self.I_avg - self.I_subtract
@@ -163,72 +244,44 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.w.update_image(I_rgb)
         self.w.update()
 
-    @QtCore.pyqtSlot(object)
-    def newFile(self, filename):
-        # print("new file: %s" % filename)
-        try:
-            I = plt.imread(filename)
-            self.status_bar_fields["filename"].setText(os.path.basename(filename))
-        except FileNotFoundError:
-            return
-        self.accum(I)
-        # self.showAccum()
-
-        # print(I.shape)
-        # print(I.dtype)
-        # print(cv2.COLOR_GRAY2RGB)
-        # I = (I/2**(16-8)).astype(np.uint8)
-        # I_rgb = cv2.cvtColor(I, cv2.COLOR_GRAY2RGB)
-        # self.w.update_image(I_rgb)
-        # self.w.update()
-
-        try:
-            os.remove(filename)
-        except PermissionError as e:
-            print(e)
-        # try:
-        #     I = plt.imread(filename)
-        #     self.w.update_image(I)
-        #     # self.w.load_image_from_file(filename, use_opencv=True)
-        #     self.w.update()
-        #     os.remove(filename)
-        # except Exception as e:
-        #     print(e)
+    def saveAvgImg(self):
+        bits_out_save = 16
+        I_save = np.clip(self.I_avg, 0, (2**bits_out_save-1))
+        I_save = I_save.astype(np.uint16)
+        self.file_count += 1
+        out_filename = 'images\\avg_%08d.tiff' % self.file_count
+        plt.imsave(out_filename, I_save)
 
     def closeEvent(self, event):
-        # print("closeEvent")
-        if self.worker is not None:
-            self.worker.stop()
-        stop_file = os.path.join(self.path_to_watch, "stop.txt")
-        if os.path.exists(stop_file):
-            os.remove(stop_file)
-        with open(stop_file, "w"):
-            pass
-        os.remove(stop_file)
+        print("closeEvent")
+        self.ebusReader.stop()
+        self.timer.stop()
+        self.serialWidget.close()
+        self.w.close()
         event.accept()
 
 
-    def startTestMode(self):
-        # this generates fake data based on a timer, for testing purposes:
-        self.testIteration = 0
-        self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.testModeUpdate)
-        self.timer_period_ms = 100
-        self.timer.start(self.timer_period_ms)
-        self.testModeUpdate()
+    # def startTestMode(self):
+    #     # this generates fake data based on a timer, for testing purposes:
+    #     self.testIteration = 0
+    #     self.timer = QtCore.QTimer()
+    #     self.timer.timeout.connect(self.testModeUpdate)
+    #     self.timer_period_ms = 100
+    #     self.timer.start(self.timer_period_ms)
+    #     self.testModeUpdate()
 
-    def testModeUpdate(self):
-        # generate a new image, save to disk
-        filename = os.path.join(self.path_to_watch, 'test%d.tiff' % self.testIteration)
+    # def testModeUpdate(self):
+    #     # generate a new image, save to disk
+    #     filename = os.path.join(self.path_to_watch, 'test%d.tiff' % self.testIteration)
         
-        data = np.zeros((600, 600), dtype=np.uint16)
-        N_pixels = 10
-        self.testIteration += N_pixels
-        if self.testIteration+N_pixels > data.shape[1]:
-            self.testIteration = 0
-        data[0:N_pixels, self.testIteration:(self.testIteration+N_pixels)] = 2**15
-        im = Image.fromarray(data)
-        im.save(filename)
+    #     data = np.zeros((600, 600), dtype=np.uint16)
+    #     N_pixels = 10
+    #     self.testIteration += N_pixels
+    #     if self.testIteration+N_pixels > data.shape[1]:
+    #         self.testIteration = 0
+    #     data[0:N_pixels, self.testIteration:(self.testIteration+N_pixels)] = 2**15
+    #     im = Image.fromarray(data)
+    #     im.save(filename)
 
 
 def main():

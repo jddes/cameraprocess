@@ -19,7 +19,7 @@ def connect_signals_to_slots(obj):
     obj.btnTest.clicked.connect(obj.btnTest_clicked).
 
     Returns a textual list of the connections made, intended for debugging only """
-    t1 = time.clock()
+    t1 = time.perf_counter()
 
     # find all child Python widgets:
     child_widgets = getChildWidgets(obj)
@@ -49,7 +49,7 @@ def connect_signals_to_slots(obj):
 
         connections_list.append("Connected %s.%s to %s" % (widget_name, signal_name, func_name))
 
-    t2 = time.clock()
+    t2 = time.perf_counter()
     # print("connect_signals_to_slots(): elapsed %f sec" % ((t2-t1)))
     return connections_list
 
