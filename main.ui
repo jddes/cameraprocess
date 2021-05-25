@@ -72,6 +72,13 @@
         </property>
        </widget>
       </item>
+      <item row="1" column="0">
+       <widget class="QPushButton" name="btnDisconnect">
+        <property name="text">
+         <string>Disconnect</string>
+        </property>
+       </widget>
+      </item>
       <item row="4" column="0">
        <widget class="QLabel" name="label">
         <property name="text">
@@ -85,6 +92,24 @@
          <string>Save 1 image</string>
         </property>
        </widget>
+      </item>
+      <item row="8" column="1">
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="QLineEdit" name="editROIradius">
+          <property name="text">
+           <string>20</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="editROItaper">
+          <property name="text">
+           <string>20</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
       <item row="2" column="0">
        <widget class="QCheckBox" name="chkAvg">
@@ -107,7 +132,7 @@
         </property>
        </widget>
       </item>
-      <item row="9" column="0" colspan="2">
+      <item row="10" column="0" colspan="2">
        <layout class="QGridLayout" name="gridLayout_2">
         <item row="2" column="2">
          <widget class="QLabel" name="lblExposureMSActual">
@@ -163,39 +188,7 @@
         </item>
        </layout>
       </item>
-      <item row="7" column="1">
-       <widget class="QLineEdit" name="editROIcenter">
-        <property name="text">
-         <string>100, 50</string>
-        </property>
-       </widget>
-      </item>
-      <item row="8" column="1">
-       <layout class="QHBoxLayout" name="horizontalLayout_2">
-        <item>
-         <widget class="QLineEdit" name="editROIradius">
-          <property name="text">
-           <string>20</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="editROItaper">
-          <property name="text">
-           <string>20</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item row="1" column="0">
-       <widget class="QPushButton" name="btnDisconnect">
-        <property name="text">
-         <string>Disconnect</string>
-        </property>
-       </widget>
-      </item>
-      <item row="10" column="1">
+      <item row="11" column="1">
        <spacer name="verticalSpacer">
         <property name="orientation">
          <enum>Qt::Vertical</enum>
@@ -207,6 +200,27 @@
          </size>
         </property>
        </spacer>
+      </item>
+      <item row="7" column="1">
+       <widget class="QLineEdit" name="editROIcenter">
+        <property name="text">
+         <string>100, 50</string>
+        </property>
+       </widget>
+      </item>
+      <item row="9" column="0">
+       <widget class="QLabel" name="label_8">
+        <property name="text">
+         <string>Frames in scrolling plot</string>
+        </property>
+       </widget>
+      </item>
+      <item row="9" column="1">
+       <widget class="QLineEdit" name="editFramesInScrolling">
+        <property name="text">
+         <string>300</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>

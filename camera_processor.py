@@ -19,6 +19,7 @@ import image_processor
 import sui_camera_constants as camera
 import ebus_reader
 import serial_widget
+import scrolling_plot
 
 class CameraProcessor(QtWidgets.QMainWindow):
 
@@ -132,11 +133,16 @@ class CameraProcessor(QtWidgets.QMainWindow):
 
         self.w = DisplayImageWidget()
         self.w.resize(600, 600)
+        self.w.setWindowTitle('IR Camera Image')
         self.w.show()
 
         self.serialWidget = serial_widget.SerialWidget()
         self.serialWidget.move(50, 200)
         self.serialWidget.show()
+
+        self.scrollingPlot = scrolling_plot.ScrollingPlot()
+        self.editFramesInScrolling_editingFinished()
+        self.scrollingPlot.show()
 
         hbox = self.centralWidget().layout()
         # hbox.addWidget(self.w)
@@ -146,6 +152,13 @@ class CameraProcessor(QtWidgets.QMainWindow):
         connections_list = qt_helpers.connect_signals_to_slots(self)
         self.setWindowTitle('eBUS Camera Processor')
         self.resize(600, 600)
+
+    def editFramesInScrolling_editingFinished(self):
+        try:
+            N = int(round(float(eval(self.editFramesInScrolling.text()))))
+            self.scrollingPlot.updateXspan(N)
+        except:
+            pass
 
     def createStatusBar(self):
         self.status_bar_fields = OrderedDict()
@@ -287,6 +300,8 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.w.update_image(I_rgb)
         self.w.update()
 
+        self.scrollingPlot.newPoint(np.sum(self.I_avg))
+
     def saveAvgImg(self):
         bits_out_save = 16
         I_save = np.clip(self.I_avg, 0, (2**bits_out_save-1))
@@ -301,6 +316,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.timer.stop()
         self.serialWidget.close()
         self.w.close()
+        self.scrollingPlot.close()
         event.accept()
 
 
