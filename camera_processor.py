@@ -39,7 +39,6 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.file_count     = 0
 
         self.imgProc = image_processor.ImageProcessor()
-        self.imgProc.img = None
 
         self.ebusReader = ebus_reader.EbusReader(use_mock=True)
 
@@ -207,6 +206,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.showAvg()
 
     def newImage(self, img):
+        img = self.imgProc.run(img)
         self.accum(img)
 
     def accum(self, I_uint16):
