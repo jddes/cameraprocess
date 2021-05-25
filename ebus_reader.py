@@ -62,6 +62,8 @@ class EbusReader(QtCore.QRunnable):
         """ Turn off all AGC and 'enhancements' features, which ruin any chance at proper power calibration of the adc counts """
         ebus.writeSerialPort('ENH:ENABLE OFF\r')
         ebus.writeSerialPort('AGC:ENABLE OFF\r')
+        ebus.writeSerialPort('EXP?\r')
+        ebus.writeSerialPort('FRAME:PERIOD?\r')
 
     def disconnect(self):
         ebus.stopAcquisition()

@@ -37,6 +37,11 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.I_subtract     = None
         self.I_avg          = None
         self.file_count     = 0
+        
+        self.taper_shape_last = None
+        self.radius_last      = None
+        self.taper_last       = None
+        self.window           = None
 
         self.imgProc = image_processor.ImageProcessor()
 
@@ -205,14 +210,52 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.max_val = int(float(eval(self.editMax.text())))
         self.showAvg()
 
+    def computeWindowFunction(self, img_shape, radius, taper):
+        # only recompute window if it has changed:
+        if self.taper_shape_last == img_shape and self.radius_last == self.radius and self.taper_last == self.taper:
+            return
+
+        N = img_shape[0]
+        y_dist, x_dist = np.meshgrid(np.arange(N)+0.5-N/2, np.arange(N)+0.5-N/2)
+        distance_to_center = np.sqrt(x_dist*x_dist + y_dist*y_dist)
+        in_center_logical = (distance_to_center < self.radius)
+        in_taper_logical = np.logical_and(self.radius <= distance_to_center, distance_to_center <= self.radius+self.taper)
+        self.window = 1.0*in_center_logical
+        if self.taper != 0:
+            self.window += in_taper_logical * 0.5 * (1.0 + np.cos(np.pi * ((distance_to_center-self.radius)/self.taper)))
+
+        self.taper_shape_last = img_shape
+        self.radius_last      = self.radius
+        self.taper_last       = self.taper
+
     def newImage(self, img):
+        if self.chkROI.isChecked():
+            try:
+                xy_str = self.editROIcenter.text().split(',')
+                if len(xy_str) == 2:
+                    xcenter = int(xy_str[0])
+                    ycenter = int(xy_str[1])
+                    radius  = int(self.editROIradius.text())//2
+                    taper   = int(self.editROItaper.text())//2
+                    d_half = int((radius + taper))
+                    # apply ROI by croppping
+                    img = img[ycenter-d_half:ycenter+d_half, xcenter-d_half:xcenter+d_half]
+                    # apply tapered window/weighting function:
+                    self.computeWindowFunction(img.shape, radius, taper) # recompute if needed
+                    img = img * self.window
+            except:
+                # we simply don't apply the ROI if it's wrong
+                pass
         img = self.imgProc.run(img)
-        self.accum(img)
+        if img is not None:
+            self.accum(img)
 
     def accum(self, I_uint16):
         if self.I_accum is None or self.N_accum == 0:
             self.accumInit(I_uint16)
 
+        if I_uint16.dtype != np.uint16 and self.I_accum.dtype == np.int64:
+            self.I_accum.dtype = np.float64
         self.I_accum += I_uint16
         self.N_accum += 1
 

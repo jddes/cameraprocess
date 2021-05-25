@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>482</width>
+    <width>319</width>
     <height>646</height>
    </rect>
   </property>
@@ -41,6 +41,13 @@
        <widget class="QCheckBox" name="chkSubtract">
         <property name="text">
          <string>Subtract bck img</string>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="0">
+       <widget class="QLabel" name="label_7">
+        <property name="text">
+         <string>ROI diameter and taper size [pixels]</string>
         </property>
        </widget>
       </item>
@@ -79,13 +86,6 @@
         </property>
        </widget>
       </item>
-      <item row="0" column="1">
-       <widget class="QPushButton" name="btnDisconnect">
-        <property name="text">
-         <string>Disconnect</string>
-        </property>
-       </widget>
-      </item>
       <item row="2" column="0">
        <widget class="QCheckBox" name="chkAvg">
         <property name="text">
@@ -94,9 +94,51 @@
        </widget>
       </item>
       <item row="6" column="0" colspan="2">
+       <widget class="QCheckBox" name="chkROI">
+        <property name="text">
+         <string>Crop image to Region-Of-Interest (ROI)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0">
+       <widget class="QLabel" name="label_6">
+        <property name="text">
+         <string>ROI X,Y center [pixels]</string>
+        </property>
+       </widget>
+      </item>
+      <item row="9" column="0" colspan="2">
        <layout class="QGridLayout" name="gridLayout_2">
+        <item row="2" column="2">
+         <widget class="QLabel" name="lblExposureMSActual">
+          <property name="text">
+           <string>TextLabel</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QLabel" name="lblExposureMSRequested">
+          <property name="text">
+           <string>TextLabel</string>
+          </property>
+         </widget>
+        </item>
         <item row="1" column="1">
          <widget class="QLineEdit" name="editExposureCount"/>
+        </item>
+        <item row="1" column="2">
+         <widget class="QLabel" name="lblExposureCounts">
+          <property name="text">
+           <string>TextLabel</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="label_5">
+          <property name="text">
+           <string>Exposure time [ms]</string>
+          </property>
+         </widget>
         </item>
         <item row="1" column="0">
          <widget class="QLabel" name="label_2">
@@ -119,35 +161,52 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="0">
-         <widget class="QLabel" name="label_5">
+       </layout>
+      </item>
+      <item row="7" column="1">
+       <widget class="QLineEdit" name="editROIcenter">
+        <property name="text">
+         <string>100, 50</string>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="1">
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="QLineEdit" name="editROIradius">
           <property name="text">
-           <string>Exposure time [ms]</string>
+           <string>20</string>
           </property>
          </widget>
         </item>
-        <item row="2" column="1">
-         <widget class="QLabel" name="lblExposureMSRequested">
+        <item>
+         <widget class="QLineEdit" name="editROItaper">
           <property name="text">
-           <string>TextLabel</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="2">
-         <widget class="QLabel" name="lblExposureMSActual">
-          <property name="text">
-           <string>TextLabel</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="2">
-         <widget class="QLabel" name="lblExposureCounts">
-          <property name="text">
-           <string>TextLabel</string>
+           <string>20</string>
           </property>
          </widget>
         </item>
        </layout>
+      </item>
+      <item row="1" column="0">
+       <widget class="QPushButton" name="btnDisconnect">
+        <property name="text">
+         <string>Disconnect</string>
+        </property>
+       </widget>
+      </item>
+      <item row="10" column="1">
+       <spacer name="verticalSpacer">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>40</height>
+         </size>
+        </property>
+       </spacer>
       </item>
      </layout>
     </item>
