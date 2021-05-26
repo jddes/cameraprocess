@@ -213,7 +213,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.updateDisplayedImage()
 
     def updateROIparameters(self):
-        if self.imgProc.applyROI:
+        if self.chkROI.isChecked():
             try:
                 xy_str = self.editROIcenter.text().split(',')
                 if len(xy_str) == 2:
@@ -221,7 +221,6 @@ class CameraProcessor(QtWidgets.QMainWindow):
                     ycenter = int(xy_str[1])
                     radius  = int(self.editROIradius.text())//2
                     taper   = int(self.editROItaper.text())//2
-                    d_half = int((radius + taper))
                     self.imgProc.updateROI(True, xcenter, ycenter, radius, taper)
             except:
                 pass

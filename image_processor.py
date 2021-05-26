@@ -16,23 +16,22 @@ class ImageProcessor():
         self.I_avg          = None
         self.file_count     = 0
         
-        self.taper_shape_last = None
-        self.radius_last      = None
-        self.taper_last       = None
-        self.window           = None
+        self.window_params_last = None
 
     def updateROI(self, apply_ROI, xcenter=None, ycenter=None, radius=None, taper=None):
         self.apply_ROI = apply_ROI
         if apply_ROI:
             self.ROI = (xcenter, ycenter, radius, taper)
 
-    def computeWindowFunction(self, img_shape, radius, taper):
-        # only recompute window if it has changed:
-        if self.taper_shape_last == img_shape and self.radius_last == radius and self.taper_last == taper:
+    def computeWindowFunction(self, ycenter, ymin, ymax, xcenter, xmin, xmax, radius, taper):
+        """ Computes the window only if it has changed since last call """
+        if self.window_params_last == (ymin, ymax, xmin, xmax, radius, taper):
             return
 
-        N = img_shape[0]
-        y_dist, x_dist = np.meshgrid(np.arange(N)+0.5-N/2, np.arange(N)+0.5-N/2)
+        y_dist, x_dist = np.meshgrid(np.arange(xmin, xmax)-xcenter, np.arange(ymin, ymax)-ycenter)
+        print("y_dist.shape = ", y_dist.shape)
+        print("x_dist.shape = ", x_dist.shape)
+
         distance_to_center = np.sqrt(x_dist*x_dist + y_dist*y_dist)
         in_center_logical = (distance_to_center < radius)
         in_taper_logical = np.logical_and(radius <= distance_to_center, distance_to_center <= radius+taper)
@@ -40,25 +39,31 @@ class ImageProcessor():
         if taper != 0:
             self.window += in_taper_logical * 0.5 * (1.0 + np.cos(np.pi * ((distance_to_center-radius)/taper)))
 
-        self.taper_shape_last = img_shape
-        self.radius_last      = radius
-        self.taper_last       = taper
+        self.window_params_last = (ycenter, ymin, ymax, xcenter, xmin, xmax, radius, taper)
 
     def applyROIandWindowing(self, img):
         if not self.apply_ROI:
             return img
         else:
-            try:
+            if 1:#  try:
                 (xcenter, ycenter, radius, taper) = self.ROI
+                full_radius = int((radius + taper))
+                ymin = max(0, ycenter-full_radius)
+                ymax = min(ycenter+full_radius, img.shape[0]-1)
+                xmin = max(0, xcenter-full_radius)
+                xmax = min(xcenter+full_radius, img.shape[1]-1)
                 # apply ROI by croppping
-                img = img[ycenter-d_half:ycenter+d_half, xcenter-d_half:xcenter+d_half]
+                cropped_img = img[ymin:ymax, xmin:xmax]
+                if 0 in cropped_img.shape:
+                    return img # invalid region, with one empty dimension
                 # apply tapered window/weighting function:
-                self.computeWindowFunction(img.shape, radius, taper) # recompute if needed
-                img = img * self.window
-                return img
-            except:
-                # we simply don't apply the ROI if it's wrong
-                return None
+                self.computeWindowFunction(ycenter, ymin, ymax, xcenter, xmin, xmax, radius, taper) # recomputes only if needed
+                print("img.shape = ", img.shape)
+                cropped_img = cropped_img * self.window
+                return cropped_img
+            # except:
+            #     # we simply don't apply the ROI if it's wrong
+            #     return None
 
     def newImage(self, img):
         img = self.applyROIandWindowing(img)
