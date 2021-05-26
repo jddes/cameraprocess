@@ -23,6 +23,8 @@ class SUICamera():
     PIXCLK_MAX = 20750000 # read back from the camera once
 
     def __init__(self):
+        self.reply_buffer = ''
+
         self.registers = {k: None for k in ['EXP', 'FRAME:PERIOD']}
         self.reg_scaling = {
             'EXP':          linear_map(1, self.EXP_OFFSET),
@@ -31,16 +33,16 @@ class SUICamera():
         for reg_name in self.registers:
             assert reg_name in self.reg_scaling
 
-    def on_connected(self, ebus):
+    def on_connected(self, writeSerialPort, readSerialPort):
         """ Called by ebus_reader after a connection is made to a camera.
         Sets a bunch of useful default values.
-        ebus must be a reference to the pyebus SDK wrapper """
-        self.writeSerialPort = ebus.writeSerialPort
-        self.readSerialPort  = ebus.readSerialPort
+        writeSerialPort and readSerialPort must be functions that allow writing/reading the camera's serial port """
+        self.writeSerialPort = writeSerialPort
+        self.readSerialPort  = readSerialPort
         self.disableAutogain()
         self.readoutRegisters()
 
-    def newSerialData(self):
+    def newSerialData(self, text):
         """ Updates our knowledge of register values if they appear in the serial communication data.
         Returns true if any of the registers has been updated """
         self.reply_buffer += text
@@ -87,19 +89,22 @@ class SUICamera():
 
     def _setRegister(self, reg_name, reg_value):
         """ Writes a single raw register value to the camera """
-        self.writeSerialPort(reg_name + '%d\r' % int(reg_value))
+        self.writeSerialPort(reg_name + ' %d\r' % int(reg_value))
 
     def setExposure(self, counts):
-        self.setRegister(self.reg_scaling['EXP'].display_to_reg(counts))
+        self.setRegister('EXP', counts)
+
+    def setFramePeriod(self, counts):
+        self.setRegister('FRAME:PERIOD', counts)
 
     def getExposure(self):
         """ Returns the latest-known exposure duration """
-        val_counts = self.reg_scaling['EXP'].reg_to_diplay(self.registers['EXP'])
+        val_counts = self.reg_scaling['EXP'].reg_to_display(self.registers['EXP'])
         return (val_counts, self.countsToSeconds(val_counts))
 
     def getFramePeriod(self):
         """ Returns the latest-known frame duration """
-        val_counts = self.reg_scaling['FRAME:PERIOD'].reg_to_diplay(self.registers['FRAME:PERIOD'])
+        val_counts = self.reg_scaling['FRAME:PERIOD'].reg_to_display(self.registers['FRAME:PERIOD'])
         return (val_counts, self.countsToSeconds(val_counts))
 
     def countsToSeconds(self, EXP_adjusted):

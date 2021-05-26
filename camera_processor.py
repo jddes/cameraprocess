@@ -8,14 +8,12 @@ from PyQt5 import QtCore, QtGui, QtWidgets, uic
 import time
 import sys
 
-import matplotlib.pyplot as plt
 import numpy as np
-from PIL import Image
-import cv2
 
 from display_image_widget import DisplayImageWidget
 import qt_helpers
 import image_processor
+import image_processor_plugin
 import sui_camera
 import ebus_reader
 import serial_widget
@@ -30,28 +28,13 @@ class CameraProcessor(QtWidgets.QMainWindow):
 
         print("CameraProcessor main thread id: ", threading.get_native_id())
 
-        self.I_accum        = None
-        self.N_accum        = 0
-        self.N_accum_target = 10
-        self.max_val        = 2**16
-        self.min_val        = 0
-        self.I_subtract     = None
-        self.I_avg          = None
-        self.file_count     = 0
-        
-        self.taper_shape_last = None
-        self.radius_last      = None
-        self.taper_last       = None
-        self.window           = None
-
         self.imgProc = image_processor.ImageProcessor()
+        self.imgProcPlugin = image_processor_plugin.ImageProcessor()
         self.camera = sui_camera.SUICamera()
 
-        self.ebusReader = ebus_reader.EbusReader(use_mock=True)
+        self.ebusReader = ebus_reader.EbusReader(use_mock=True, camera=self.camera)
 
-        self.reply_buffer = ''
-
-        self.fileWatcher = QtCore.QFileSystemWatcher(["image_processor.py"])
+        self.fileWatcher = QtCore.QFileSystemWatcher(["image_processor_plugin.py"])
         self.fileWatcher.fileChanged.connect(self.fileWatcher_fileChanged)
 
         self.setupUI()
@@ -89,16 +72,18 @@ class CameraProcessor(QtWidgets.QMainWindow):
             self.registersUpdated()
 
     def editExposureCount_editingFinished(self):
+        user_val = int(round(float(eval(self.editExposureCount.text()))))
+        self.camera.setExposure(user_val)
         try:
             user_val = int(round(float(eval(self.editExposureCount.text()))))
-            self.setExposure(user_val)
+            self.camera.setExposure(user_val)
         except:
             return
 
     def editFrameCount_editingFinished(self):
         try:
             user_val = int(round(float(eval(self.editFrameCount.text()))))
-            self.setFramePeriod(user_val)
+            self.camera.setFramePeriod(user_val)
         except:
             return
 
@@ -114,25 +99,29 @@ class CameraProcessor(QtWidgets.QMainWindow):
             user_val = 0
 
         widgets['requestedMS'].setText('%.3f ms' % (1e3*self.camera.countsToSeconds(user_val)))
-        widgets['lblExposureMSActual'].setText('%.3f ms' % (1e3*val_secs))
+        widgets['actualMS'].setText('%.3f ms' % (1e3*val_secs))
         widgets['actualCounts'].setText(str(val_counts))
 
     def fileWatcher_fileChanged(self, path):
         print("fileWatcher_fileChanged: %s" % path)
-        old_obj = self.imgProc
-        reload(image_processor)
-        new_obj = image_processor.ImageProcessor()
+        old_obj = self.imgProcPlugin
+        reload(image_processor_plugin)
+        new_obj = image_processor_plugin.ImageProcessor()
         # copy all attributes of the old object to the new one, except builtins or callables of course
         for attr_name in dir(old_obj):
             attr = getattr(old_obj, attr_name)
             if not attr_name.startswith('__') and not callable(attr):
                 print("copying attribute '%s'" % attr_name)
                 setattr(new_obj, attr_name, attr)
-        self.imgProc = new_obj
+        self.imgProcPlugin = new_obj
 
     def setupUI(self):
         uic.loadUi("main.ui", self)
         self.createStatusBar()
+
+        self.chkROI.stateChanged.connect(self.updateROIparameters)
+        for w in [self.editROIcenter, self.editROIradius, self.editROItaper]:
+            w.editingFinished.connect(self.updateROIparameters)
 
         self.w = DisplayImageWidget()
         self.w.resize(600, 600)
@@ -151,10 +140,14 @@ class CameraProcessor(QtWidgets.QMainWindow):
         # hbox.addWidget(self.w)
 
         self.editN_editingFinished()
+        self.chkSubtract_stateChanged()
 
         connections_list = qt_helpers.connect_signals_to_slots(self)
         self.setWindowTitle('eBUS Camera Processor')
-        self.resize(600, 600)
+        # self.resize(600, 600)
+
+    def chkSubtract_stateChanged(self):
+        self.imgProc.background_subtraction = self.chkSubtract.isChecked()
 
     def editFramesInScrolling_editingFinished(self):
         try:
@@ -196,6 +189,11 @@ class CameraProcessor(QtWidgets.QMainWindow):
     def editMax_editingFinished(self):
         self.updateMinMax()
 
+    def updateMinMax(self):
+        self.imgProc.min_val = int(float(eval(self.editMin.text())))
+        self.imgProc.max_val = int(float(eval(self.editMax.text())))
+        self.updateDisplayedImage()
+
     def chkAvg_clicked(self):
         self.editN_editingFinished()
 
@@ -205,39 +203,17 @@ class CameraProcessor(QtWidgets.QMainWindow):
         else:
             N = 1
         if N > 0:
-            self.N_accum_target = N
-            self.status_bar_fields["pb"].setMaximum(self.N_accum_target)
-            self.status_bar_fields["pb"].setFormat('%%v/%d' % self.N_accum_target)
+            self.imgProc.N_accum_target = N
+            self.status_bar_fields["pb"].setMaximum(self.imgProc.N_accum_target)
+            self.status_bar_fields["pb"].setFormat('%%v/%d' % self.imgProc.N_accum_target)
 
     def btnBck_clicked(self):
-        self.I_subtract = self.I_avg
-        self.showAvg()
+        """ Update the background image that gets subtracted """
+        self.imgProc.I_subtract = self.imgProc.I_avg
+        self.updateDisplayedImage()
 
-    def updateMinMax(self):
-        self.min_val = int(float(eval(self.editMin.text())))
-        self.max_val = int(float(eval(self.editMax.text())))
-        self.showAvg()
-
-    def computeWindowFunction(self, img_shape, radius, taper):
-        # only recompute window if it has changed:
-        if self.taper_shape_last == img_shape and self.radius_last == self.radius and self.taper_last == self.taper:
-            return
-
-        N = img_shape[0]
-        y_dist, x_dist = np.meshgrid(np.arange(N)+0.5-N/2, np.arange(N)+0.5-N/2)
-        distance_to_center = np.sqrt(x_dist*x_dist + y_dist*y_dist)
-        in_center_logical = (distance_to_center < self.radius)
-        in_taper_logical = np.logical_and(self.radius <= distance_to_center, distance_to_center <= self.radius+self.taper)
-        self.window = 1.0*in_center_logical
-        if self.taper != 0:
-            self.window += in_taper_logical * 0.5 * (1.0 + np.cos(np.pi * ((distance_to_center-self.radius)/self.taper)))
-
-        self.taper_shape_last = img_shape
-        self.radius_last      = self.radius
-        self.taper_last       = self.taper
-
-    def newImage(self, img):
-        if self.chkROI.isChecked():
+    def updateROIparameters(self):
+        if self.imgProc.applyROI:
             try:
                 xy_str = self.editROIcenter.text().split(',')
                 if len(xy_str) == 2:
@@ -246,65 +222,30 @@ class CameraProcessor(QtWidgets.QMainWindow):
                     radius  = int(self.editROIradius.text())//2
                     taper   = int(self.editROItaper.text())//2
                     d_half = int((radius + taper))
-                    # apply ROI by croppping
-                    img = img[ycenter-d_half:ycenter+d_half, xcenter-d_half:xcenter+d_half]
-                    # apply tapered window/weighting function:
-                    self.computeWindowFunction(img.shape, radius, taper) # recompute if needed
-                    img = img * self.window
+                    self.imgProc.updateROI(True, xcenter, ycenter, radius, taper)
             except:
-                # we simply don't apply the ROI if it's wrong
                 pass
-        img = self.imgProc.run(img)
-        if img is not None:
-            self.accum(img)
-
-    def accum(self, I_uint16):
-        if self.I_accum is None or self.N_accum == 0:
-            self.accumInit(I_uint16)
-
-        if I_uint16.dtype != np.uint16 and self.I_accum.dtype == np.int64:
-            # fallback to accumulating in floats if the images have been transformed already
-            self.I_accum.dtype = np.float64
-        self.I_accum += I_uint16
-        self.N_accum += 1
-
-        if self.N_accum <= self.status_bar_fields["pb"].maximum():
-            self.status_bar_fields["pb"].setValue(self.N_accum)
-
-        if self.N_accum >= self.N_accum_target:
-            self.I_avg = self.I_accum/self.N_accum
-            self.showAvg()
-            self.accumInit(I_uint16)
-
-    def accumInit(self, I_uint16):
-        self.I_accum = np.zeros(I_uint16.shape[0:2], dtype=np.int64)
-        self.N_accum = 0
-
-    def showAvg(self):
-        bits_out_display = 8
-
-        if self.chkSubtract.isChecked() and self.I_subtract is not None:
-            I_subtracted = self.I_avg - self.I_subtract
         else:
-            I_subtracted = self.I_avg
+            self.imgProc.updateROI(False)
 
-        I = (I_subtracted - self.min_val) * (2**bits_out_display-1)/(self.max_val-self.min_val)
+    @QtCore.pyqtSlot(object)
+    def newImage(self, img):
+        """ Receives a raw image from the ebus reader, sends it through the processing pipeline,
+        and updates the various displays from the processed result. """
+        processedImage = self.imgProc.newImage(img)
 
-        np.clip(I, 0, 2**bits_out_display-1, out=I)
-        I_uint8 = I.astype(np.uint8)
-        I_rgb = cv2.cvtColor(I_uint8, cv2.COLOR_GRAY2RGB)
-        self.w.update_image(I_rgb)
+        if self.imgProc.N_progress <= self.status_bar_fields["pb"].maximum():
+            self.status_bar_fields["pb"].setValue(self.imgProc.N_progress)
+
+        if processedImage is not None:
+            self.updateDisplayedImage(processedImage)
+            self.scrollingPlot.newPoint(np.sum(self.imgProc.I_subtracted))
+
+    def updateDisplayedImage(self, img=None):
+        if img is None:
+            img = self.imgProc.getDisplayImg()
+        self.w.update_image(img)
         self.w.update()
-
-        self.scrollingPlot.newPoint(np.sum(self.I_avg))
-
-    def saveAvgImg(self):
-        bits_out_save = 16
-        I_save = np.clip(self.I_avg, 0, (2**bits_out_save-1))
-        I_save = I_save.astype(np.uint16)
-        self.file_count += 1
-        out_filename = 'images\\avg_%08d.tiff' % self.file_count
-        plt.imsave(out_filename, I_save)
 
     def closeEvent(self, event):
         print("closeEvent")
@@ -314,30 +255,6 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.w.close()
         self.scrollingPlot.close()
         event.accept()
-
-
-    # def startTestMode(self):
-    #     # this generates fake data based on a timer, for testing purposes:
-    #     self.testIteration = 0
-    #     self.timer = QtCore.QTimer()
-    #     self.timer.timeout.connect(self.testModeUpdate)
-    #     self.timer_period_ms = 100
-    #     self.timer.start(self.timer_period_ms)
-    #     self.testModeUpdate()
-
-    # def testModeUpdate(self):
-    #     # generate a new image, save to disk
-    #     filename = os.path.join(self.path_to_watch, 'test%d.tiff' % self.testIteration)
-        
-    #     data = np.zeros((600, 600), dtype=np.uint16)
-    #     N_pixels = 10
-    #     self.testIteration += N_pixels
-    #     if self.testIteration+N_pixels > data.shape[1]:
-    #         self.testIteration = 0
-    #     data[0:N_pixels, self.testIteration:(self.testIteration+N_pixels)] = 2**15
-    #     im = Image.fromarray(data)
-    #     im.save(filename)
-
 
 def main():
 

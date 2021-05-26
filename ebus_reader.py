@@ -54,7 +54,7 @@ class EbusReader(QtCore.QRunnable):
         ebus.connectToDevice(device_unique_id)
         ebus.openDeviceSerialPort()
         if self.camera:
-            self.camera.on_connected()
+            self.camera.on_connected(ebus.writeSerialPort, ebus.readSerialPort)
         ebus.openStream(device_unique_id)
         self._createBuffers()
         ebus.startAcquisition()
