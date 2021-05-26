@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>319</width>
-    <height>646</height>
+    <width>330</width>
+    <height>642</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -31,7 +31,7 @@
        </widget>
       </item>
       <item row="3" column="1">
-       <widget class="QPushButton" name="pushButton">
+       <widget class="QPushButton" name="btnBck">
         <property name="text">
          <string>Set as bkg img</string>
         </property>
@@ -183,6 +183,44 @@
          <widget class="QLabel" name="label_4">
           <property name="text">
            <string>Actual</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QLabel" name="label_9">
+          <property name="text">
+           <string>Frame period [cycles @ fclk]</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="0">
+         <widget class="QLabel" name="label_10">
+          <property name="text">
+           <string>Frame period [ms]</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QLineEdit" name="editFrameCount"/>
+        </item>
+        <item row="3" column="2">
+         <widget class="QLabel" name="lblFrameCounts">
+          <property name="text">
+           <string>TextLabel</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="1">
+         <widget class="QLabel" name="lblFrameMSRequested">
+          <property name="text">
+           <string>TextLabel</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="2">
+         <widget class="QLabel" name="lblFrameMSActual">
+          <property name="text">
+           <string>TextLabel</string>
           </property>
          </widget>
         </item>

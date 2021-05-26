@@ -22,12 +22,13 @@ class EbusReader(QtCore.QRunnable):
     """
     Worker thread
     """
-    def __init__(self, use_mock=False):
+    def __init__(self, use_mock=False, camera=None):
         super().__init__()
         self.use_mock = use_mock
         self.signals  = SignalsDefines()
         self.stop_flag = False # semaphore used to stop the thread
         self.connected = False
+        self.camera = camera # will get called on a connection event
 
         if self.use_mock:
             ebus.useMock()
@@ -52,18 +53,12 @@ class EbusReader(QtCore.QRunnable):
     def connect(self, device_unique_id):
         ebus.connectToDevice(device_unique_id)
         ebus.openDeviceSerialPort()
-        self.disableAutogain()
+        if self.camera:
+            self.camera.on_connected()
         ebus.openStream(device_unique_id)
         self._createBuffers()
         ebus.startAcquisition()
         self.connected = True
-
-    def disableAutogain(self):
-        """ Turn off all AGC and 'enhancements' features, which ruin any chance at proper power calibration of the adc counts """
-        ebus.writeSerialPort('ENH:ENABLE OFF\r')
-        ebus.writeSerialPort('AGC:ENABLE OFF\r')
-        ebus.writeSerialPort('EXP?\r')
-        ebus.writeSerialPort('FRAME:PERIOD?\r')
 
     def disconnect(self):
         ebus.stopAcquisition()

@@ -16,7 +16,7 @@ import cv2
 from display_image_widget import DisplayImageWidget
 import qt_helpers
 import image_processor
-import sui_camera_constants as camera
+import sui_camera
 import ebus_reader
 import serial_widget
 import scrolling_plot
@@ -45,6 +45,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.window           = None
 
         self.imgProc = image_processor.ImageProcessor()
+        self.camera = sui_camera.SUICamera()
 
         self.ebusReader = ebus_reader.EbusReader(use_mock=True)
 
@@ -55,7 +56,18 @@ class CameraProcessor(QtWidgets.QMainWindow):
 
         self.setupUI()
 
-        self.registers = {k: None for k in ['EXP', 'FRAME:PERIOD']}
+        self.widgets_exposure = {
+            'requestedCounts': self.editExposureCount,
+            'requestedMS':     self.lblExposureMSRequested,
+            'actualMS':        self.lblExposureMSActual,
+            'actualCounts':    self.lblExposureCounts,
+        }
+        self.widgets_frameperiod = {
+            'requestedCounts': self.editFrameCount,
+            'requestedMS':     self.lblFrameMSRequested,
+            'actualMS':        self.lblFrameMSActual,
+            'actualCounts':    self.lblFrameCounts,
+        }
 
         # start polling timer for the serial reads:
         self.timer = QtCore.QTimer()
@@ -68,51 +80,42 @@ class CameraProcessor(QtWidgets.QMainWindow):
             return
         N_TO_READ = 1000 # this must be less than pyebus_main.cpp:RX_BUFFER_SIZE (TODO: add this as a module constant)
         reply = ebus_reader.ebus.readSerialPort(N_TO_READ, 1)
-        if reply != '':
-            print(repr(reply))
-            self.serialWidget.editConsole.appendPlainText(reply)
-            self.reply_buffer += reply
-            self.splitSerialTextInLines()
+        if reply == '':
+            return
 
-    def splitSerialTextInLines(self):
-        pos = self.reply_buffer.find('\r')
-        while pos != -1:
-            full_line = self.reply_buffer[:pos+1]
-            self.parseSerialOutput(full_line)
-            self.reply_buffer = self.reply_buffer[pos+1:]
-            
-            pos = self.reply_buffer.find('\r')
-
-    def parseSerialOutput(self, line):
-        """ Called whenever the device replies one full line on its serial port.
-        Will parse out relevant info and display them in the GUI """
-        for reg_name in self.registers.keys():
-            header = reg_name + ' '
-            if line.startswith(header):
-                value = int(line[len(header):])
-                self.registers[reg_name] = value
-                self.registersUpdated()
+        print(repr(reply))
+        self.serialWidget.editConsole.appendPlainText(reply)
+        if self.camera.newSerialData(reply):
+            self.registersUpdated()
 
     def editExposureCount_editingFinished(self):
         try:
             user_val = int(round(float(eval(self.editExposureCount.text()))))
+            self.setExposure(user_val)
         except:
             return
 
-        EXP_register = user_val - camera.EXP_OFFSET
-        ebus_reader.ebus.writeSerialPort('EXP %d\r' % EXP_register)
+    def editFrameCount_editingFinished(self):
+        try:
+            user_val = int(round(float(eval(self.editFrameCount.text()))))
+            self.setFramePeriod(user_val)
+        except:
+            return
 
     def registersUpdated(self):
-        """ Called when the serial communication shows a new value of a register.
-        Updates our internal values and GUI """
+        """ Updates the GUI with the new register values. """
+        self.updateLinkedRegistersWidgets(self.widgets_exposure, *self.camera.getExposure())
+        self.updateLinkedRegistersWidgets(self.widgets_frameperiod, *self.camera.getFramePeriod())
+
+    def updateLinkedRegistersWidgets(self, widgets, val_counts, val_secs):
         try:
-            user_val = int(round(float(eval(self.editExposureCount.text()))))
+            user_val = int(round(float(eval(widgets['requestedCounts'].text()))))
         except:
             user_val = 0
 
-        self.lblExposureMSRequested.setText('%.3f ms' % (1e3*camera.countsToSeconds(user_val)))
-        self.lblExposureMSActual.setText(   '%.3f ms' % (1e3*camera.countsToSeconds(self.registers['EXP'] + camera.EXP_OFFSET)))
-        self.lblExposureCounts.setText(                                         str(self.registers['EXP'] + camera.EXP_OFFSET))
+        widgets['requestedMS'].setText('%.3f ms' % (1e3*self.camera.countsToSeconds(user_val)))
+        widgets['lblExposureMSActual'].setText('%.3f ms' % (1e3*val_secs))
+        widgets['actualCounts'].setText(str(val_counts))
 
     def fileWatcher_fileChanged(self, path):
         print("fileWatcher_fileChanged: %s" % path)
@@ -172,14 +175,6 @@ class CameraProcessor(QtWidgets.QMainWindow):
             else:
                 stretch = 0
             self.statusBar().addPermanentWidget(w, stretch)
-
-    # def setupWorkerThreads(self, *args, **kwargs):
-    #     self.workers = list()
-    #     self.workers.append(DirectoryWatcherWorker(*args, **kwargs))
-    #     self.workers[-1].signals.newFile.connect(self.newFile)
-    #     # from https://stackoverflow.com/a/60977476
-    #     threadpool = QtCore.QThreadPool.globalInstance()
-    #     threadpool.start(self.workers[-1])
 
     def btnConnect_clicked(self):
         # from https://stackoverflow.com/a/60977476
@@ -268,6 +263,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
             self.accumInit(I_uint16)
 
         if I_uint16.dtype != np.uint16 and self.I_accum.dtype == np.int64:
+            # fallback to accumulating in floats if the images have been transformed already
             self.I_accum.dtype = np.float64
         self.I_accum += I_uint16
         self.N_accum += 1
