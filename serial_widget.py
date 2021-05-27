@@ -30,8 +30,8 @@ class SerialWidget(QtWidgets.QWidget):
         self.setWindowTitle('eBUS Serial Console')
 
     def editPrompt_returnPressed(self):
-        newtext = 'Sent: ' + self.editPrompt.text() + '\n'
-        self.editConsole.appendPlainText(newtext)
+        newtext = 'Sent: ' + self.editPrompt.text()
+        self.editConsole.appendPlainText(repr(newtext))
 
 def main():
     app = QtWidgets.QApplication(sys.argv)

@@ -33,7 +33,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.imgProcPlugin = image_processor_plugin.ImageProcessor()
         self.camera = sui_camera.SUICamera()
 
-        self.ebusReader = ebus_reader.EbusReader(use_mock=True, camera=self.camera)
+        self.ebusReader = ebus_reader.EbusReader(use_mock=False, camera=self.camera)
 
         self.fileWatcher = QtCore.QFileSystemWatcher(["image_processor_plugin.py"])
         self.fileWatcher.fileChanged.connect(self.fileWatcher_fileChanged)
@@ -68,7 +68,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
             return
 
         print(repr(reply))
-        self.serialWidget.editConsole.appendPlainText(reply)
+        self.serialWidget.editConsole.appendPlainText(repr(reply))
         if self.camera.newSerialData(reply):
             self.registersUpdated()
 
@@ -130,6 +130,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.w.show()
 
         self.serialWidget = serial_widget.SerialWidget()
+        self.serialWidget.editPrompt.returnPressed.connect(self.sendSerial)
         self.serialWidget.move(50, 200)
         self.serialWidget.show()
 
@@ -151,6 +152,10 @@ class CameraProcessor(QtWidgets.QMainWindow):
         connections_list = qt_helpers.connect_signals_to_slots(self)
         self.setWindowTitle('eBUS Camera Processor')
         # self.resize(600, 600)
+
+    def sendSerial(self):
+        text = self.serialWidget.editPrompt.text() + '\r'
+        ebus_reader.ebus.writeSerialPort(text)
 
     def chkSubtract_stateChanged(self):
         self.imgProc.background_subtraction = self.chkSubtract.isChecked()
@@ -176,7 +181,6 @@ class CameraProcessor(QtWidgets.QMainWindow):
             self.statusBar().addPermanentWidget(w, stretch)
 
     def btnConnect_clicked(self):
-        # from https://stackoverflow.com/a/60977476
         id_list = self.ebusReader.list_devices()
         if len(id_list) > 1:
             print("TODO: implement device selection instead of connecting to the first one available")

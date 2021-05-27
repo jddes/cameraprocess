@@ -41,11 +41,14 @@ class EbusReader(QtCore.QRunnable):
         """ Returns a list of unique device IDs for all devices found over all interfaces """
         id_list = []
 
+        findEthernetTimeout = 1 # 1500 ms is recommended for the API, but we have no Ethernet camera, so we skip this process (USB cameras do require waiting with a timeout)
+        ebus.findDevices(findEthernetTimeout)
+
         for if_id in range(ebus.getInterfaceCount()):
             if_name = ebus.getInterfaceDisplayID(if_id)
             print("if_name = %s, devices count = %d" % (if_name, ebus.getDeviceCount(if_id)))
             for dev_id in range(ebus.getDeviceCount(if_id)):
-                id_list.append(ebus.getDeviceUniqueID(if_id, dev_id))
+                id_list.append(ebus.getDeviceConnectionID(if_id, dev_id))
                 print("\tdevice_unique_id = ", id_list[-1])
 
         return id_list
@@ -55,9 +58,10 @@ class EbusReader(QtCore.QRunnable):
         ebus.openDeviceSerialPort()
         if self.camera:
             self.camera.on_connected(ebus.writeSerialPort, ebus.readSerialPort)
-        ebus.openStream(device_unique_id)
-        self._createBuffers()
-        ebus.startAcquisition()
+        # ebus.openStream(device_unique_id)
+        # self._createBuffers()
+        # ebus.startAcquisition()
+        # self.stop_flag = True
         self.connected = True
 
     def disconnect(self):
@@ -82,16 +86,17 @@ class EbusReader(QtCore.QRunnable):
 
         print("ebus reader thread id: ", threading.get_native_id())
         while not self.stop_flag and self.connected:
-            (img_buffer, img_info) = ebus.getImage(timeoutMS)
-            img_np = np.frombuffer(img_buffer, np.uint16)
-            img_copy = img_np.copy() # make a copy so that we can release the ebus buffer for the driver to re-use, while still doing operations on it
-            ebus.releaseImage()
+            # (img_buffer, img_info) = ebus.getImage(timeoutMS)
+            # img_np = np.frombuffer(img_buffer, np.uint16)
+            # img_copy = img_np.copy() # make a copy so that we can release the ebus buffer for the driver to re-use, while still doing operations on it
+            # ebus.releaseImage()
 
-            if self.stop_flag:
-                break
-            info = ebus.expand_img_info_tuple(img_info)
-            img_copy = img_copy.reshape(info['Height'], info['Width'])
-            self.signals.newImage.emit(img_copy)
+            # if self.stop_flag:
+            #     break
+            # info = ebus.expand_img_info_tuple(img_info)
+            # img_copy = img_copy.reshape(info['Height'], info['Width'])
+            # self.signals.newImage.emit(img_copy)
+            time.sleep(1)
 
         self.disconnect()
 
