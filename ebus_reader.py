@@ -64,9 +64,9 @@ class EbusReader(QtCore.QRunnable):
         if self.camera:
             self.camera.on_connected(ebus.writeSerialPort, ebus.readSerialPort)
         t2 = time.perf_counter(); print(t2-t1)
-        # ebus.openStream(device_unique_id)
-        # self._createBuffers()
-        # ebus.startAcquisition()
+        ebus.openStream(device_unique_id)
+        self._createBuffers()
+        ebus.startAcquisition()
         # self.stop_flag = True
         self.connected = True
 
@@ -92,17 +92,17 @@ class EbusReader(QtCore.QRunnable):
 
         print("ebus reader thread id: ", threading.get_native_id())
         while not self.stop_flag and self.connected:
-            # (img_buffer, img_info) = ebus.getImage(timeoutMS)
-            # img_np = np.frombuffer(img_buffer, np.uint16)
-            # img_copy = img_np.copy() # make a copy so that we can release the ebus buffer for the driver to re-use, while still doing operations on it
-            # ebus.releaseImage()
+            (img_buffer, img_info) = ebus.getImage(timeoutMS)
+            img_np = np.frombuffer(img_buffer, np.uint16)
+            img_copy = img_np.copy() # make a copy so that we can release the ebus buffer for the driver to re-use, while still doing operations on it
+            ebus.releaseImage()
 
-            # if self.stop_flag:
-            #     break
-            # info = ebus.expand_img_info_tuple(img_info)
-            # img_copy = img_copy.reshape(info['Height'], info['Width'])
-            # self.signals.newImage.emit(img_copy)
-            time.sleep(1)
+            if self.stop_flag:
+                break
+            info = ebus.expand_img_info_tuple(img_info)
+            img_copy = img_copy.reshape(info['Height'], info['Width'])
+            self.signals.newImage.emit(img_copy)
+            # time.sleep(1)
 
         self.disconnect()
 
