@@ -54,10 +54,16 @@ class EbusReader(QtCore.QRunnable):
         return id_list
 
     def connect(self, device_unique_id):
+        t1 = time.perf_counter()
         ebus.connectToDevice(device_unique_id)
+        t2 = time.perf_counter(); print(t2-t1)
+        t1 = time.perf_counter()
         ebus.openDeviceSerialPort()
+        t2 = time.perf_counter(); print(t2-t1)
+        t1 = time.perf_counter()
         if self.camera:
             self.camera.on_connected(ebus.writeSerialPort, ebus.readSerialPort)
+        t2 = time.perf_counter(); print(t2-t1)
         # ebus.openStream(device_unique_id)
         # self._createBuffers()
         # ebus.startAcquisition()

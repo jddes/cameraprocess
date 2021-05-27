@@ -39,7 +39,8 @@ class SUICamera():
         writeSerialPort and readSerialPort must be functions that allow writing/reading the camera's serial port """
         self.writeSerialPort = writeSerialPort
         self.readSerialPort  = readSerialPort
-        self.disableAutogain()
+        # self.disableAutogain()
+        print("FIXME: commented out the 'disableAutogain()' while trying to fix serial comms")
         self.readoutRegisters()
 
     def newSerialData(self, text):
