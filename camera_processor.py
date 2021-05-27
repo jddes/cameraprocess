@@ -18,6 +18,7 @@ import sui_camera
 import ebus_reader
 import serial_widget
 import scrolling_plot
+import histogram_plot_widget
 
 class CameraProcessor(QtWidgets.QMainWindow):
 
@@ -136,6 +137,11 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.editFramesInScrolling_editingFinished()
         self.scrollingPlot.show()
 
+        self.histogram = histogram_plot_widget.HistogramPlotWidget()
+        self.histogram.resize(500, 150)
+        self.histogram.move(0, 100)
+        self.histogram.show()
+
         hbox = self.centralWidget().layout()
         # hbox.addWidget(self.w)
 
@@ -212,6 +218,9 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.imgProc.I_subtract = self.imgProc.I_avg
         self.updateDisplayedImage()
 
+    def btnDisconnect_clicked(self):
+        self.ebusReader.stop()
+
     def updateROIparameters(self):
         if self.chkROI.isChecked():
             try:
@@ -233,6 +242,8 @@ class CameraProcessor(QtWidgets.QMainWindow):
         and updates the various displays from the processed result. """
         processedImage = self.imgProc.newImage(img)
 
+        # self.histogram.updateData(img) # too slow! need something else (in C++? or just live with min/max?)
+
         if self.imgProc.N_progress <= self.status_bar_fields["pb"].maximum():
             self.status_bar_fields["pb"].setValue(self.imgProc.N_progress)
 
@@ -253,6 +264,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.serialWidget.close()
         self.w.close()
         self.scrollingPlot.close()
+        self.histogram.close()
         event.accept()
 
 def main():
