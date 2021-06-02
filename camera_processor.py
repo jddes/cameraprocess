@@ -184,6 +184,10 @@ class CameraProcessor(QtWidgets.QMainWindow):
         id_list = self.ebusReader.list_devices()
         if len(id_list) > 1:
             print("TODO: implement device selection instead of connecting to the first one available")
+        if len(id_list) == 0:
+            print("Error: could not find a camera device to connect to. Will use the mock device")
+            ebus_reader.ebus.useMock()
+            id_list = self.ebusReader.list_devices()
         self.ebusReader.connect(id_list[0])
         self.ebusReader.signals.newImage.connect(self.newImage)
 
