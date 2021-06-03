@@ -15,7 +15,7 @@ import pyebus as ebus
 class SignalsDefines(QtCore.QObject):
     """ this is needed since PyQt requires an object to be a subclass of QObject
     in order to define signals, but QRunnable is not. """
-    newImage = QtCore.pyqtSignal(object)
+    newImage = QtCore.pyqtSignal(object, object, object)
     serialReadComplete = QtCore.pyqtSignal(int, str, str, str)
 
 class EbusReader(QtCore.QRunnable):
@@ -125,15 +125,20 @@ class EbusReader(QtCore.QRunnable):
             if self.connected and self.streamOpened:
                 (img_buffer, img_info) = ebus.getImage(timeoutMS)
                 img_np = np.frombuffer(img_buffer, np.uint16)
+                info = ebus.expand_img_info_tuple(img_info)
+                img_np = img_np.reshape(info['Height'], info['Width'])
+                frame_timestamp = img_np[0, 0]
+
+                # img_copy = np.delete(img_np, 1, axis=1) # remove column that contains the frame timestamps, also creates a copy
                 img_copy = img_np.copy() # make a copy so that we can release the ebus buffer for the driver to re-use, while still doing operations on it
                 ebus.releaseImage()
 
+                # img_copy = img_copy[0:img_copy.shape[0], 1:img_copy.shape[1]].copy()
+                img_copy[:, 0] = img_copy[:, 1] # blank out the timestamp column... couldn't get delete() or slicing operations to work without issues...
+
                 if self.quit_thread_flag:
                     break
-                info = ebus.expand_img_info_tuple(img_info)
-                img_copy = img_copy.reshape(info['Height'], info['Width'])
-                # print("min=", np.min(img_copy), "max=", np.max(img_copy), "dtype=", img_copy.dtype)
-                self.signals.newImage.emit(img_copy)
+                self.signals.newImage.emit(img_copy, frame_timestamp, time.perf_counter())
             else:
                 time.sleep(0.1) # idle while not connected
 

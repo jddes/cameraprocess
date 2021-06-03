@@ -24,7 +24,7 @@ class SUICamera():
     BPP_DATASTREAM = 12 # Output data is scaled so that minimum ADC value maps to 0 and max maps to 2**BPP_DATASTREAM-1
     pixelsX = 640
     pixelsY = 512
-    adc_gain = 1.0 # todo: put ADC gain in Joules/counts
+    adc_gain_counts_per_Joule = 4.73e17 # ADC gain in counts per Joules
 
     def __init__(self):
         self.reply_buffer = ''
@@ -32,7 +32,7 @@ class SUICamera():
         self.registers = {k: None for k in ['EXP', 'FRAME:PERIOD']}
         self.reg_scaling = {
             'EXP':          linear_map(1, self.EXP_OFFSET),
-            'FRAME:PERIOD': linear_map(1, self.EXP_OFFSET),}
+            'FRAME:PERIOD': linear_map(1, 0),}
 
         for reg_name in self.registers:
             assert reg_name in self.reg_scaling
@@ -44,6 +44,7 @@ class SUICamera():
         self.writeSerialPort = writeSerialPort
         self.readSerialPort  = readSerialPort
         self.disableAutogain()
+        self.enableTimestamps()
         self.readoutRegisters()
 
     def newSerialData(self, text):
@@ -82,6 +83,14 @@ class SUICamera():
         self.writeSerialPort('ENH:ENABLE OFF\r')
         self.writeSerialPort('AGC:ENABLE OFF\r')
 
+    def enableTimestamps(self):
+        """ Enables the frame timestamps feature of the SUI camera.
+        This feature replaces the first pixel of each line with the frame number from 0 to 4095.
+        The datasheet actually says that it's only supposed to replace the first pixel at all,
+        but the data suggests otherwise... """
+        self.writeSerialPort('FRAME:STAMP ON\r')
+        self.writeSerialPort('DIGITAL:SOURCE FSTAMP\r')
+
     def readoutRegisters(self):
         """ Requests the current value of all interesting registers from the camera """
         for reg_name in self.registers:
@@ -117,10 +126,10 @@ class SUICamera():
     def convertADCcountsToWatts(self, adc_counts):
         """ Converts a value in adc counts units to Watts """
         try:
-            expo_time = self.getExposure()
-            return adc_counts / (self.adc_gain * expo_time)
+            expo_counts, expo_time = self.getExposure()
+            return adc_counts / (self.adc_gain_counts_per_Joule * expo_time)
         except:
-            # print('Warning: exposure time unknown. Incorrect scaling will result')
+            print('Warning: exposure time unknown. Incorrect scaling will result')
             return adc_counts # can't properly scale since we don't know the exposure time yet
 
     def setupWindowing(self, X1, Y1, X2, Y2):

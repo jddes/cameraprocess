@@ -29,6 +29,15 @@ class CameraProcessor(QtWidgets.QMainWindow):
 
         print("CameraProcessor main thread id: ", threading.get_native_id())
 
+        self.frame_timestamps = np.zeros(1000)
+        self.cpu_timestamps = np.zeros(1000)
+        self.ind_stamp = 0
+        with open("frame_timestamps.bin", "wb") as f:
+            pass
+        with open("cpu_timestamps.bin", "wb") as f:
+            pass
+        print('Cleared timestamps file')
+
         self.imgProc = image_processor.ImageProcessor()
         self.imgProcPlugin = image_processor_plugin.ImageProcessor()
         self.camera = sui_camera.SUICamera()
@@ -149,17 +158,20 @@ class CameraProcessor(QtWidgets.QMainWindow):
             w.editingFinished.connect(self.updateROIparameters)
 
         self.w = DisplayImageWidget()
-        self.w.resize(600, 600)
+        self.w.move(444, 22)
+        self.w.resize(640, 512)
         self.w.setWindowTitle('IR Camera Image')
         self.w.show()
 
         self.serialWidget = serial_widget.SerialWidget()
         self.serialWidget.editPrompt.returnPressed.connect(self.sendSerial)
-        self.serialWidget.move(50, 200)
+        self.serialWidget.move(1229, 20)
         self.serialWidget.show()
 
         self.scrollingPlot = scrolling_plot.ScrollingPlot()
         self.editFramesInScrolling_editingFinished()
+        self.scrollingPlot.resize(760, 305)
+        self.scrollingPlot.move(444, 661)
         self.scrollingPlot.show()
 
         # self.histogram = histogram_plot_widget.HistogramPlotWidget()
@@ -177,7 +189,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
 
         connections_list = qt_helpers.connect_signals_to_slots(self)
         self.setWindowTitle('eBUS Camera Processor')
-        # self.resize(600, 600)
+        self.move(37, 22)
 
     def sendSerial(self):
         text = self.serialWidget.editPrompt.text() + '\r'
@@ -243,6 +255,9 @@ class CameraProcessor(QtWidgets.QMainWindow):
 
             self.ebusReader.openStream(resolution_dict)
             self.updateConnectionState()
+            self.last_frame_stamp = None
+            self.dropped_frames = 0
+
         # except:
         else:
             pass
@@ -279,6 +294,11 @@ class CameraProcessor(QtWidgets.QMainWindow):
                 self.btnCloseStream.setEnabled(False)
             for w in [self.editResolution, self.editXYoffset]:
                 w.setEnabled(True)
+
+    def btnAutoscale_clicked(self):
+        self.editADCblack.setText(self.lblMinADC.text().strip('%'))
+        self.editADCwhite.setText(self.lblMaxADC.text().strip('%'))
+        self.updateMinMax()
 
     def editADCblack_editingFinished(self):
         self.updateMinMax()
@@ -328,17 +348,45 @@ class CameraProcessor(QtWidgets.QMainWindow):
         else:
             self.imgProc.updateROI(False)
 
-    @QtCore.pyqtSlot(object)
-    def newImage(self, img):
+    def logTimestamps(self, frame_timestamp):
+        self.frame_timestamps[self.ind_stamp] = frame_timestamp
+        self.cpu_timestamps[self.ind_stamp] = time.perf_counter()
+        self.ind_stamp += 1
+
+        if self.ind_stamp >= len(self.frame_timestamps):
+            self.ind_stamp = 0
+            with open("frame_timestamps.bin", "ab") as f:
+                f.write(self.frame_timestamps.tobytes())
+            with open("cpu_timestamps.bin", "ab") as f:
+                f.write(self.cpu_timestamps.tobytes())
+            print('Saved 1000 timestamps')
+
+    def checkDroppedFrames(self, frame_timestamp):
+        if self.last_frame_stamp == None:
+            self.last_frame_stamp = frame_timestamp
+            self.dropped_frames = 0
+            self.lblDroppedFrames.setText('0')
+            return
+
+        frames_increments = (int(frame_timestamp) - int(self.last_frame_stamp)) % 2**self.camera.BPP_DATASTREAM
+        self.last_frame_stamp = frame_timestamp
+        if frames_increments != 1:
+            self.dropped_frames += frames_increments-1
+            self.lblDroppedFrames.setText('%d' % self.dropped_frames)
+
+    @QtCore.pyqtSlot(object, object, object)
+    def newImage(self, img, frame_timestamp, cpu_img_send_timestamp):
         """ Receives a raw image from the ebus reader, sends it through the processing pipeline,
         and updates the various displays from the processed result. """
         # self.histogram.updateData(img) # too slow! need something else (in C++? or just live with min/max?)
+        self.logTimestamps(frame_timestamp)
+        self.checkDroppedFrames(frame_timestamp)
         conv_func = lambda x : 100./(2.0**self.camera.BPP_DATASTREAM-1) * x
         self.lblMinADC.setText('%.1f%%' % (conv_func(np.min(img))))
         self.lblMaxADC.setText('%.1f%%' % (conv_func(np.max(img))))
 
         processedImage = self.imgProc.newImage(self.imgProcPlugin.run(img))
-
+        self.lblProcessingLatency.setText('%.1f ms' % (1e3*(time.perf_counter()-cpu_img_send_timestamp)))
 
         if self.imgProc.N_progress <= self.status_bar_fields["pb"].maximum():
             self.status_bar_fields["pb"].setValue(self.imgProc.N_progress)

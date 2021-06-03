@@ -29,8 +29,6 @@ class ImageProcessor():
             return
 
         y_dist, x_dist = np.meshgrid(np.arange(xmin, xmax)-xcenter, np.arange(ymin, ymax)-ycenter)
-        print("y_dist.shape = ", y_dist.shape)
-        print("x_dist.shape = ", x_dist.shape)
 
         distance_to_center = np.sqrt(x_dist*x_dist + y_dist*y_dist)
         in_center_logical = (distance_to_center < radius)
@@ -58,7 +56,6 @@ class ImageProcessor():
                     return img # invalid region, with one empty dimension
                 # apply tapered window/weighting function:
                 self.computeWindowFunction(ycenter, ymin, ymax, xcenter, xmin, xmax, radius, taper) # recomputes only if needed
-                print("img.shape = ", img.shape)
                 cropped_img = cropped_img * self.window
                 return cropped_img
             # except:
