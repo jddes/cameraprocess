@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>335</width>
+    <width>358</width>
     <height>857</height>
    </rect>
   </property>
@@ -17,7 +17,14 @@
    <layout class="QHBoxLayout" name="horizontalLayout">
     <item>
      <layout class="QGridLayout" name="gridLayout">
-      <item row="20" column="1">
+      <item row="27" column="1">
+       <widget class="QLineEdit" name="editADCblack">
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+      <item row="22" column="1">
        <layout class="QHBoxLayout" name="horizontalLayout_2">
         <item>
          <widget class="QLineEdit" name="editROIradius">
@@ -35,7 +42,7 @@
         </item>
        </layout>
       </item>
-      <item row="14" column="1">
+      <item row="16" column="1">
        <widget class="QLineEdit" name="editN">
         <property name="maximumSize">
          <size>
@@ -48,98 +55,98 @@
         </property>
        </widget>
       </item>
-      <item row="15" column="1">
+      <item row="17" column="1">
        <widget class="QPushButton" name="btnBck">
         <property name="text">
          <string>Set as bkg img</string>
         </property>
        </widget>
       </item>
-      <item row="14" column="0">
+      <item row="16" column="0">
        <widget class="QCheckBox" name="chkAvg">
         <property name="text">
          <string>Average frames:</string>
         </property>
        </widget>
       </item>
-      <item row="17" column="1">
+      <item row="19" column="1">
        <widget class="QPushButton" name="pushButton_3">
         <property name="text">
          <string>Save N images</string>
         </property>
        </widget>
       </item>
-      <item row="16" column="0">
+      <item row="18" column="0">
        <widget class="QLabel" name="label">
         <property name="text">
          <string>Images to save:</string>
         </property>
        </widget>
       </item>
-      <item row="15" column="0">
+      <item row="17" column="0">
        <widget class="QCheckBox" name="chkSubtract">
         <property name="text">
          <string>Subtract bck img</string>
         </property>
        </widget>
       </item>
-      <item row="20" column="0">
+      <item row="22" column="0">
        <widget class="QLabel" name="label_7">
         <property name="text">
          <string>ROI diameter and taper size [pixels]</string>
         </property>
        </widget>
       </item>
-      <item row="16" column="1">
+      <item row="18" column="1">
        <widget class="QLineEdit" name="lineEdit">
         <property name="text">
          <string>60</string>
         </property>
        </widget>
       </item>
-      <item row="17" column="0">
+      <item row="19" column="0">
        <widget class="QPushButton" name="pushButton_2">
         <property name="text">
          <string>Save 1 image</string>
         </property>
        </widget>
       </item>
-      <item row="18" column="0" colspan="2">
+      <item row="20" column="0" colspan="2">
        <widget class="QCheckBox" name="chkROI">
         <property name="text">
          <string>Crop image to Region-Of-Interest (software ROI)</string>
         </property>
        </widget>
       </item>
-      <item row="19" column="1">
+      <item row="21" column="1">
        <widget class="QLineEdit" name="editROIcenter">
         <property name="text">
          <string>100, 50</string>
         </property>
        </widget>
       </item>
-      <item row="21" column="1">
+      <item row="23" column="1">
        <widget class="QLineEdit" name="editFramesInScrolling">
         <property name="text">
          <string>300</string>
         </property>
        </widget>
       </item>
-      <item row="19" column="0">
+      <item row="21" column="0">
        <widget class="QLabel" name="label_6">
         <property name="text">
          <string>ROI X,Y center [pixels]</string>
         </property>
        </widget>
       </item>
-      <item row="21" column="0">
+      <item row="23" column="0">
        <widget class="QLabel" name="label_8">
         <property name="text">
          <string>Frames in scrolling plot</string>
         </property>
        </widget>
       </item>
-      <item row="28" column="1">
+      <item row="31" column="1">
        <spacer name="verticalSpacer">
         <property name="orientation">
          <enum>Qt::Vertical</enum>
@@ -152,7 +159,7 @@
         </property>
        </spacer>
       </item>
-      <item row="22" column="0" colspan="2">
+      <item row="24" column="0" colspan="2">
        <layout class="QGridLayout" name="gridLayout_2">
         <item row="2" column="2">
          <widget class="QLabel" name="lblExposureMSActual">
@@ -253,7 +260,7 @@
         </property>
        </widget>
       </item>
-      <item row="8" column="1">
+      <item row="10" column="1">
        <widget class="QLineEdit" name="editPixelPitch">
         <property name="text">
          <string>12.5</string>
@@ -281,10 +288,24 @@
         </property>
        </widget>
       </item>
+      <item row="6" column="0">
+       <widget class="QLabel" name="label_18">
+        <property name="text">
+         <string>Dropped Frames</string>
+        </property>
+       </widget>
+      </item>
       <item row="4" column="1">
        <widget class="QLineEdit" name="editXYoffset">
         <property name="text">
          <string>0, 0</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="1">
+       <widget class="QLabel" name="lblDroppedFrames">
+        <property name="text">
+         <string>TextLabel</string>
         </property>
        </widget>
       </item>
@@ -295,56 +316,56 @@
         </property>
        </widget>
       </item>
-      <item row="9" column="0">
+      <item row="11" column="0">
        <widget class="QLabel" name="lblTargetDistance">
         <property name="text">
          <string>Target distance [m]</string>
         </property>
        </widget>
       </item>
-      <item row="7" column="1">
+      <item row="9" column="1">
        <widget class="QLineEdit" name="editFocalLength">
         <property name="text">
          <string>0.3</string>
         </property>
        </widget>
       </item>
-      <item row="8" column="0">
+      <item row="10" column="0">
        <widget class="QLabel" name="label_15">
         <property name="text">
          <string>Pixel pitch [um]</string>
         </property>
        </widget>
       </item>
-      <item row="12" column="0">
+      <item row="14" column="0">
        <widget class="QLabel" name="label_17">
         <property name="text">
          <string>Field-of-vew [m]</string>
         </property>
        </widget>
       </item>
-      <item row="7" column="0">
+      <item row="9" column="0">
        <widget class="QLabel" name="label_13">
         <property name="text">
          <string>Lens focal length [m]</string>
         </property>
        </widget>
       </item>
-      <item row="10" column="0">
+      <item row="12" column="0">
        <widget class="QLabel" name="label_14">
         <property name="text">
-         <string>Field-of-view [rad]</string>
+         <string>Field-of-view [mrad]</string>
         </property>
        </widget>
       </item>
-      <item row="9" column="1">
+      <item row="11" column="1">
        <widget class="QLineEdit" name="editTargetDistance">
         <property name="text">
          <string>1000</string>
         </property>
        </widget>
       </item>
-      <item row="24" column="0">
+      <item row="26" column="0">
        <widget class="QLabel" name="label_16">
         <property name="text">
          <string>Min value [% of ADC counts]</string>
@@ -358,21 +379,28 @@
         </property>
        </widget>
       </item>
-      <item row="13" column="0" colspan="2">
+      <item row="30" column="1">
+       <widget class="QPushButton" name="btnAutoscale">
+        <property name="text">
+         <string>Autoscale display</string>
+        </property>
+       </widget>
+      </item>
+      <item row="15" column="0" colspan="2">
        <widget class="Line" name="line_2">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
         </property>
        </widget>
       </item>
-      <item row="10" column="1">
+      <item row="12" column="1">
        <widget class="QLabel" name="lblFOVradians">
         <property name="text">
          <string>TextLabel</string>
         </property>
        </widget>
       </item>
-      <item row="25" column="0">
+      <item row="27" column="0">
        <widget class="QLabel" name="label_19">
         <property name="text">
          <string>ADC value mapped to black [%]</string>
@@ -386,64 +414,71 @@
         </property>
        </widget>
       </item>
-      <item row="12" column="1">
+      <item row="14" column="1">
        <widget class="QLabel" name="lblFOVmeters">
         <property name="text">
          <string>TextLabel</string>
         </property>
        </widget>
       </item>
-      <item row="6" column="0" colspan="2">
+      <item row="8" column="0" colspan="2">
        <widget class="Line" name="line">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
         </property>
        </widget>
       </item>
-      <item row="23" column="0" colspan="2">
-       <widget class="Line" name="line_3">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-       </widget>
-      </item>
-      <item row="26" column="0">
-       <widget class="QLabel" name="label_20">
-        <property name="text">
-         <string>ADC value mapped to white [%]</string>
-        </property>
-       </widget>
-      </item>
-      <item row="24" column="1">
-       <widget class="QLabel" name="lblMinADC">
-        <property name="text">
-         <string>TextLabel</string>
-        </property>
-       </widget>
-      </item>
-      <item row="27" column="0">
+      <item row="29" column="0">
        <widget class="QLabel" name="label_21">
         <property name="text">
          <string>Max value [% of ADC counts]</string>
         </property>
        </widget>
       </item>
-      <item row="25" column="1">
-       <widget class="QLineEdit" name="editADCblack">
-        <property name="text">
-         <string>0</string>
+      <item row="25" column="0" colspan="2">
+       <widget class="Line" name="line_3">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
         </property>
        </widget>
       </item>
-      <item row="26" column="1">
+      <item row="29" column="1">
+       <widget class="QLabel" name="lblMaxADC">
+        <property name="text">
+         <string>TextLabel</string>
+        </property>
+       </widget>
+      </item>
+      <item row="28" column="1">
        <widget class="QLineEdit" name="editADCwhite">
         <property name="text">
          <string>100</string>
         </property>
        </widget>
       </item>
-      <item row="27" column="1">
-       <widget class="QLabel" name="lblMaxADC">
+      <item row="28" column="0">
+       <widget class="QLabel" name="label_20">
+        <property name="text">
+         <string>ADC value mapped to white [%]</string>
+        </property>
+       </widget>
+      </item>
+      <item row="26" column="1">
+       <widget class="QLabel" name="lblMinADC">
+        <property name="text">
+         <string>TextLabel</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0">
+       <widget class="QLabel" name="label_22">
+        <property name="text">
+         <string>Processing latency [ms]</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="1">
+       <widget class="QLabel" name="lblProcessingLatency">
         <property name="text">
          <string>TextLabel</string>
         </property>

@@ -67,9 +67,8 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.startImageReadoutThread()
 
     def updateFOV(self):
-        # try:
-        if 1:
-            PixelPitch = 1e6*float(eval(self.editPixelPitch.text()))
+        try:
+            PixelPitch = 1e-6*float(eval(self.editPixelPitch.text()))
             TargetDistance = float(eval(self.editTargetDistance.text()))
             FocalLength = float(eval(self.editFocalLength.text()))
             ResolutionX = float(eval(self.editResolution.text().split('x')[0]))
@@ -79,10 +78,9 @@ class CameraProcessor(QtWidgets.QMainWindow):
             FOVradiansY = np.arctan(ResolutionY * PixelPitch / FocalLength)
             FOVmetersX = TargetDistance*np.sin(FOVradiansX)
             FOVmetersY = TargetDistance*np.sin(FOVradiansY)
-            self.lblFOVradians.setText("%.6fx%.6f" % (FOVradiansX, FOVradiansY))
-            self.lblFOVmeters.setText("%.6fx%.6f" % (FOVmetersX, FOVmetersY))
-        # except:
-        else:
+            self.lblFOVradians.setText("%.2fx%.2f" % (1e3*FOVradiansX, 1e3*FOVradiansY))
+            self.lblFOVmeters.setText("%.1fx%.1f" % (FOVmetersX, FOVmetersY))
+        except:
             pass
 
     def pollSerial(self):
@@ -175,6 +173,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.editN_editingFinished()
         self.chkSubtract_stateChanged()
         self.updateConnectionState()
+        self.updateFOV()
 
         connections_list = qt_helpers.connect_signals_to_slots(self)
         self.setWindowTitle('eBUS Camera Processor')
