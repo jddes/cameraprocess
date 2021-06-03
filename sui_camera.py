@@ -21,6 +21,7 @@ class SUICamera():
 
     EXP_OFFSET = 28 # from manual, section 5.12: EXPPERIOD = (EXP + 28) / (PIXCLK:MAX) (seconds)
     PIXCLK_MAX = 20750000 # read back from the camera once
+    BPP_DATASTREAM = 16 # Output data is scaled so that minimum ADC value maps to 0 and max maps to 2**BPP_DATASTREAM-1
 
     def __init__(self):
         self.reply_buffer = ''

@@ -53,6 +53,9 @@ class CameraProcessor(QtWidgets.QMainWindow):
             'actualCounts':    self.lblFrameCounts,
         }
 
+        for w in [self.editPixelPitch, self.editTargetDistance, self.editResolution, self.editFocalLength]:
+            w.editingFinished.connect(self.updateFOV)
+
         # start polling timer for the serial reads:
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.pollSerial)
@@ -62,6 +65,25 @@ class CameraProcessor(QtWidgets.QMainWindow):
         # start the image reader thread:
         # it will actually sit idle until we actually connect and open a stream:
         self.startImageReadoutThread()
+
+    def updateFOV(self):
+        # try:
+        if 1:
+            PixelPitch = 1e6*float(eval(self.editPixelPitch.text()))
+            TargetDistance = float(eval(self.editTargetDistance.text()))
+            FocalLength = float(eval(self.editFocalLength.text()))
+            ResolutionX = float(eval(self.editResolution.text().split('x')[0]))
+            ResolutionY = float(eval(self.editResolution.text().split('x')[1]))
+
+            FOVradiansX = np.arctan(ResolutionX * PixelPitch / FocalLength)
+            FOVradiansY = np.arctan(ResolutionY * PixelPitch / FocalLength)
+            FOVmetersX = TargetDistance*np.sin(FOVradiansX)
+            FOVmetersY = TargetDistance*np.sin(FOVradiansY)
+            self.lblFOVradians.setText("%.6fx%.6f" % (FOVradiansX, FOVradiansY))
+            self.lblFOVmeters.setText("%.6fx%.6f" % (FOVmetersX, FOVmetersY))
+        # except:
+        else:
+            pass
 
     def pollSerial(self):
         if not self.ebusReader.connected:
@@ -152,6 +174,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
 
         self.editN_editingFinished()
         self.chkSubtract_stateChanged()
+        self.updateConnectionState()
 
         connections_list = qt_helpers.connect_signals_to_slots(self)
         self.setWindowTitle('eBUS Camera Processor')
@@ -194,14 +217,56 @@ class CameraProcessor(QtWidgets.QMainWindow):
             id_list = self.ebusReader.list_devices()
         self.ebusReader.connect(id_list[0])
 
+        self.updateConnectionState()
+
     def startImageReadoutThread(self):
         self.ebusReader.signals.newImage.connect(self.newImage)
 
         threadpool = QtCore.QThreadPool.globalInstance()
         threadpool.start(self.ebusReader)
 
+    def btnOpenStream_clicked(self):
+        # try:
+        if 1:
+            resolution_dict = {
+                "Width":       int(round(float(eval(self.editResolution.text().split('x')[0])))),
+                "Height":      int(round(float(eval(self.editResolution.text().split('x')[1])))),
+                "PixelFormat": "Mono12",
+                "TestPattern": "Off",
+                # "TestPattern": "iPORTTestPattern",
+                "PixelBusDataValidEnabled": "1"
+            }
+            make_even = lambda x : x + np.mod(x, 2)
+            make_odd = lambda x : x + (1-np.mod(x, 2))
+            X1 = int(round(float(eval(self.editXYoffset.text().split(',')[0]))))
+            Y1 = int(round(float(eval(self.editXYoffset.text().split(',')[0]))))
+            X1 = make_even(X1)
+            Y1 = make_even(Y1)
+            X2 = make_odd(X1 + resolution_dict["Width"] - 1)
+            Y2 = make_odd(Y1 + resolution_dict["Height"] - 1)
+            str_cmd = 'WIN:RECT %d %d %d %d\r' % (X1, Y1, X2, Y2)
+            print(repr(str_cmd))
+            ebus_reader.ebus.writeSerialPort(str_cmd)
+            self.ebusReader.openStream(resolution_dict)
+            self.updateConnectionState()
+        # except:
+        else:
+            pass
+
+    def btnCloseStream_clicked(self):
+        self.ebusReader.closeStream()
+        self.updateConnectionState()
+
     def btnDisconnect_clicked(self):
-        self.ebusReader.quitThread()
+        self.ebusReader.disconnect()
+        self.updateConnectionState()
+
+    def updateConnectionState(self):
+        for w in [self.btnOpenStream, self.btnCloseStream]:
+            w.setEnabled(self.ebusReader.connected)
+
+        for w in [self.editResolution, self.editXYoffset]:
+            w.setEnabled(not self.ebusReader.streamOpened)
 
     def editMin_editingFinished(self):
         self.updateMinMax()
@@ -210,8 +275,8 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.updateMinMax()
 
     def updateMinMax(self):
-        self.imgProc.min_val = int(float(eval(self.editMin.text())))
-        self.imgProc.max_val = int(float(eval(self.editMax.text())))
+        self.imgProc.min_val = int((2**self.camera.BPP_DATASTREAM-1)*float(eval(self.editADCblack.text())))
+        self.imgProc.max_val = int((2**self.camera.BPP_DATASTREAM-1)*float(eval(self.editADCwhite.text())))
         self.updateDisplayedImage()
 
     def chkAvg_clicked(self):
@@ -251,9 +316,13 @@ class CameraProcessor(QtWidgets.QMainWindow):
     def newImage(self, img):
         """ Receives a raw image from the ebus reader, sends it through the processing pipeline,
         and updates the various displays from the processed result. """
+        # self.histogram.updateData(img) # too slow! need something else (in C++? or just live with min/max?)
+        conv_func = lambda x : (2.0**self.camera.BPP_DATASTREAM-1) * x
+        self.lblMinADC.setText('%.1f%%' % (conv_func(np.min(img))))
+        self.lblMaxADC.setText('%.1f%%' % (conv_func(np.max(img))))
+
         processedImage = self.imgProc.newImage(self.imgProcPlugin.run(img))
 
-        # self.histogram.updateData(img) # too slow! need something else (in C++? or just live with min/max?)
 
         if self.imgProc.N_progress <= self.status_bar_fields["pb"].maximum():
             self.status_bar_fields["pb"].setValue(self.imgProc.N_progress)

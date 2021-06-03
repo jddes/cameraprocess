@@ -28,6 +28,7 @@ class EbusReader(QtCore.QRunnable):
         self.signals  = SignalsDefines()
         self.quit_thread_flag = False # semaphore used to stop the thread
         self.connected = False
+        self.streamOpened = False
         self.camera = camera # will get called on a connection event
 
         if self.use_mock:
@@ -56,6 +57,7 @@ class EbusReader(QtCore.QRunnable):
     def connect(self, device_unique_id):
         t1 = time.perf_counter()
         ebus.connectToDevice(device_unique_id)
+        self.device_unique_id = device_unique_id
         t2 = time.perf_counter(); print(t2-t1)
         t1 = time.perf_counter()
         ebus.openDeviceSerialPort()
@@ -65,11 +67,10 @@ class EbusReader(QtCore.QRunnable):
             self.camera.on_connected(ebus.writeSerialPort, ebus.readSerialPort)
         t2 = time.perf_counter(); print(t2-t1)
         self.connected = True
-        self.openStream(device_unique_id)
 
-    def openStream(self, device_unique_id):
-        self.setupResolution()
-        ebus.openStream(device_unique_id)
+    def openStream(self, resolution_dict=None):
+        self.setupResolution(resolution_dict)
+        ebus.openStream(self.device_unique_id)
         self._createBuffers()
         ebus.startAcquisition()
         # self.quit_thread_flag = True
@@ -88,13 +89,23 @@ class EbusReader(QtCore.QRunnable):
             ebus.closeDevice()
         self.connected = False
 
-    def setupResolution(self):
-        ebus.setDeviceIntegerValue( "Width", 640 )
-        ebus.setDeviceIntegerValue( "Height", 512 )
-        ebus.setDeviceEnumValue( "PixelFormat", "Mono12" )
-        ebus.setDeviceEnumValue( "TestPattern", "Off" )
-        # ebus.setDeviceEnumValue( "TestPattern", "iPORTTestPattern" )
-        ebus.setDeviceEnumValue( "PixelBusDataValidEnabled", "1" )
+    def setupResolution(self, resolution_dict=None):
+        if resolution_dict is None:
+            resolution_dict = {
+                "Width":       640,
+                "Height":      512,
+                "PixelFormat": "Mono12",
+                "TestPattern": "Off",
+                # "TestPattern": "iPORTTestPattern",
+                "PixelBusDataValidEnabled": "1"
+            }
+        for key, value in resolution_dict.items():
+            if isinstance(value, int):
+                ebus.setDeviceIntegerValue(key, value)
+            elif isinstance(value, str):
+                ebus.setDeviceEnumValue(key, value)
+            else:
+                print("Warning! no conversion known for %s, %s" % (key, value))
 
     def _createBuffers(self):
         (buffer_size, buffer_count) = ebus.getBufferRequirements()
