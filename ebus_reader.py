@@ -26,16 +26,16 @@ class EbusReader(QtCore.QRunnable):
         super().__init__()
         self.use_mock = use_mock
         self.signals  = SignalsDefines()
-        self.stop_flag = False # semaphore used to stop the thread
+        self.quit_thread_flag = False # semaphore used to stop the thread
         self.connected = False
         self.camera = camera # will get called on a connection event
 
         if self.use_mock:
             ebus.useMock()
 
-    def stop(self):
+    def quitThread(self):
         """ call this from the gui thread in order to stop the processing in the worker thread """
-        self.stop_flag = True
+        self.quit_thread_flag = True
 
     def list_devices(self):
         """ Returns a list of unique device IDs for all devices found over all interfaces """
@@ -64,22 +64,41 @@ class EbusReader(QtCore.QRunnable):
         if self.camera:
             self.camera.on_connected(ebus.writeSerialPort, ebus.readSerialPort)
         t2 = time.perf_counter(); print(t2-t1)
+        self.connected = True
+        self.openStream(device_unique_id)
+
+    def openStream(self, device_unique_id):
+        self.setupResolution()
         ebus.openStream(device_unique_id)
         self._createBuffers()
         ebus.startAcquisition()
-        # self.stop_flag = True
-        self.connected = True
+        # self.quit_thread_flag = True
+        self.streamOpened = True
+
+    def closeStream(self):
+        if self.streamOpened:
+            self.streamOpened = False
+            ebus.stopAcquisition()
+            ebus.closeStream()
+            ebus.releaseBuffers()
 
     def disconnect(self):
-        ebus.stopAcquisition()
-        ebus.closeStream()
-        ebus.releaseBuffers()
-        ebus.closeDeviceSerialPort()
-        ebus.closeDevice()
+        if self.connected:
+            ebus.closeDeviceSerialPort()
+            ebus.closeDevice()
         self.connected = False
+
+    def setupResolution(self):
+        ebus.setDeviceIntegerValue( "Width", 640 )
+        ebus.setDeviceIntegerValue( "Height", 512 )
+        ebus.setDeviceEnumValue( "PixelFormat", "Mono12" )
+        ebus.setDeviceEnumValue( "TestPattern", "Off" )
+        # ebus.setDeviceEnumValue( "TestPattern", "iPORTTestPattern" )
+        ebus.setDeviceEnumValue( "PixelBusDataValidEnabled", "1" )
 
     def _createBuffers(self):
         (buffer_size, buffer_count) = ebus.getBufferRequirements()
+        print("buffer_size = ", buffer_size, ", buffer_count = ", buffer_count)
         # allocate "buffer_count" buffers of size "buffer_size"!
         self.buffers = []
         for k in range(buffer_count):
@@ -91,18 +110,21 @@ class EbusReader(QtCore.QRunnable):
         timeoutMS = 1000
 
         print("ebus reader thread id: ", threading.get_native_id())
-        while not self.stop_flag and self.connected:
-            (img_buffer, img_info) = ebus.getImage(timeoutMS)
-            img_np = np.frombuffer(img_buffer, np.uint16)
-            img_copy = img_np.copy() # make a copy so that we can release the ebus buffer for the driver to re-use, while still doing operations on it
-            ebus.releaseImage()
+        while not self.quit_thread_flag:
+            if self.connected and self.streamOpened:
+                (img_buffer, img_info) = ebus.getImage(timeoutMS)
+                img_np = np.frombuffer(img_buffer, np.uint16)
+                img_copy = img_np.copy() # make a copy so that we can release the ebus buffer for the driver to re-use, while still doing operations on it
+                ebus.releaseImage()
 
-            if self.stop_flag:
-                break
-            info = ebus.expand_img_info_tuple(img_info)
-            img_copy = img_copy.reshape(info['Height'], info['Width'])
-            self.signals.newImage.emit(img_copy)
-            # time.sleep(1)
+                if self.quit_thread_flag:
+                    break
+                info = ebus.expand_img_info_tuple(img_info)
+                img_copy = img_copy.reshape(info['Height'], info['Width'])
+                # print("min=", np.min(img_copy), "max=", np.max(img_copy), "dtype=", img_copy.dtype)
+                self.signals.newImage.emit(img_copy)
+            else:
+                time.sleep(0.1) # idle while not connected
 
         self.disconnect()
 
@@ -118,8 +140,8 @@ class EbusReader(QtCore.QRunnable):
 #         self.signals       = SignalsDefines()
 
 #     def run(self):
-#         stop_flag = False
-#         while not stop_flag:
+#         quit_thread_flag = False
+#         while not quit_thread_flag:
 #             request = self.request_queue.get()
 #             request_id, request_type, request_param = request
 #             assert request_type in ['write', 'query', 'read', 'exit']
@@ -132,7 +154,7 @@ class EbusReader(QtCore.QRunnable):
 #             elif request_type == 'read':
 #                 self.signals.serialReadComplete.emit(request_id, request_type, request_param, self.readline())
 #             elif request_type == 'exit':
-#                 stop_flag = True
+#                 quit_thread_flag = True
 
 #     def readline(self):
 #         """ Read one byte at a time from the serial port until we get a newline character (CR).

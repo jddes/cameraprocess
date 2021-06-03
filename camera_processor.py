@@ -59,6 +59,10 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.timer_period_ms = 100
         self.timer.start(self.timer_period_ms)
 
+        # start the image reader thread:
+        # it will actually sit idle until we actually connect and open a stream:
+        self.startImageReadoutThread()
+
     def pollSerial(self):
         if not self.ebusReader.connected:
             return
@@ -189,13 +193,15 @@ class CameraProcessor(QtWidgets.QMainWindow):
             ebus_reader.ebus.useMock()
             id_list = self.ebusReader.list_devices()
         self.ebusReader.connect(id_list[0])
+
+    def startImageReadoutThread(self):
         self.ebusReader.signals.newImage.connect(self.newImage)
 
         threadpool = QtCore.QThreadPool.globalInstance()
         threadpool.start(self.ebusReader)
 
     def btnDisconnect_clicked(self):
-        self.ebusReader.stop()
+        self.ebusReader.quitThread()
 
     def editMin_editingFinished(self):
         self.updateMinMax()
@@ -226,9 +232,6 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.imgProc.I_subtract = self.imgProc.I_avg
         self.updateDisplayedImage()
 
-    def btnDisconnect_clicked(self):
-        self.ebusReader.stop()
-
     def updateROIparameters(self):
         if self.chkROI.isChecked():
             try:
@@ -248,7 +251,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
     def newImage(self, img):
         """ Receives a raw image from the ebus reader, sends it through the processing pipeline,
         and updates the various displays from the processed result. """
-        processedImage = self.imgProc.newImage(img)
+        processedImage = self.imgProc.newImage(self.imgProcPlugin.run(img))
 
         # self.histogram.updateData(img) # too slow! need something else (in C++? or just live with min/max?)
 
@@ -267,7 +270,8 @@ class CameraProcessor(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         print("closeEvent")
-        self.ebusReader.stop()
+        self.ebusReader.quitThread()
+        self.ebusReader.disconnect()
         self.timer.stop()
         self.serialWidget.close()
         self.w.close()
