@@ -112,6 +112,10 @@ class ImageProcessor():
         bits_out_display = 8
 
         self.applySubtraction()
+        # print('np.min(self.I_subtracted)=', np.min(self.I_subtracted))
+        # print('self.min_val=', self.min_val)
+        # print('np.max(self.I_subtracted)=', np.max(self.I_subtracted))
+        # print('self.max_val=', self.max_val)
         I = (self.I_subtracted - self.min_val) * (2**bits_out_display-1)/(self.max_val-self.min_val)
 
         np.clip(I, 0, 2**bits_out_display-1, out=I)

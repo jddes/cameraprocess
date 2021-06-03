@@ -7,8 +7,12 @@ class ImageProcessor():
     def run(self, img):
         """ Receives an image to process, must also return an image,
         or None if there is nothing new to display """
+        new_img = img # passthrough
 
-        new_img = 10.0*(img-10) # passthrough
+        # # autoscale min/max
+        # new_img = (new_img-np.min(new_img)).astype(np.float64)
+        # new_img = new_img*2**16/np.max(new_img)
+
         # print("min=", np.min(new_img), "max=", np.max(new_img), "dtype=", new_img.dtype)
 
         # # example: subtract last frame:

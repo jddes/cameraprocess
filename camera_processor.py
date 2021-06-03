@@ -164,10 +164,10 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.editFramesInScrolling_editingFinished()
         self.scrollingPlot.show()
 
-        self.histogram = histogram_plot_widget.HistogramPlotWidget()
-        self.histogram.resize(500, 150)
-        self.histogram.move(0, 100)
-        self.histogram.show()
+        # self.histogram = histogram_plot_widget.HistogramPlotWidget()
+        # self.histogram.resize(500, 150)
+        # self.histogram.move(0, 100)
+        # self.histogram.show()
 
         hbox = self.centralWidget().layout()
         # hbox.addWidget(self.w)
@@ -228,25 +228,20 @@ class CameraProcessor(QtWidgets.QMainWindow):
     def btnOpenStream_clicked(self):
         # try:
         if 1:
-            resolution_dict = {
-                "Width":       int(round(float(eval(self.editResolution.text().split('x')[0])))),
-                "Height":      int(round(float(eval(self.editResolution.text().split('x')[1])))),
-                "PixelFormat": "Mono12",
-                "TestPattern": "Off",
-                # "TestPattern": "iPORTTestPattern",
-                "PixelBusDataValidEnabled": "1"
-            }
-            make_even = lambda x : x + np.mod(x, 2)
-            make_odd = lambda x : x + (1-np.mod(x, 2))
+            Width = int(round(float(eval(self.editResolution.text().split('x')[0]))))
+            Height = int(round(float(eval(self.editResolution.text().split('x')[1]))))
             X1 = int(round(float(eval(self.editXYoffset.text().split(',')[0]))))
             Y1 = int(round(float(eval(self.editXYoffset.text().split(',')[0]))))
-            X1 = make_even(X1)
-            Y1 = make_even(Y1)
-            X2 = make_odd(X1 + resolution_dict["Width"] - 1)
-            Y2 = make_odd(Y1 + resolution_dict["Height"] - 1)
-            str_cmd = 'WIN:RECT %d %d %d %d\r' % (X1, Y1, X2, Y2)
-            print(repr(str_cmd))
-            ebus_reader.ebus.writeSerialPort(str_cmd)
+            X2 = X1 + Width  - 1
+            Y2 = Y1 + Height - 1
+            result = self.camera.setupWindowing(X1, Y1, X2, Y2)
+            if result is None:
+                # values were too far off to correct, just ignore
+                return
+            (resolution_dict, X1, Y1, X2, Y2) = result
+            self.editXYoffset.setText('%d, %d' % (X1, Y1))
+            self.editResolution.setText('%dx%d' % (X2-X1+1, Y2-Y1+1))
+
             self.ebusReader.openStream(resolution_dict)
             self.updateConnectionState()
         # except:
@@ -262,22 +257,44 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.updateConnectionState()
 
     def updateConnectionState(self):
-        for w in [self.btnOpenStream, self.btnCloseStream]:
-            w.setEnabled(self.ebusReader.connected)
+        """ Enables/disables GUI elements to prevent trying to change states in an unsupported way
+        by either the camera/framegrabber, or our GUI """
+        if not self.ebusReader.connected:
+            self.btnConnect.setEnabled(True)
+            self.btnDisconnect.setEnabled(False)
+            for w in [self.btnOpenStream, self.btnCloseStream]:
+                w.setEnabled(False)
 
-        for w in [self.editResolution, self.editXYoffset]:
-            w.setEnabled(not self.ebusReader.streamOpened)
+            for w in [self.editResolution, self.editXYoffset]:
+                w.setEnabled(True)
+        else:
+            self.btnConnect.setEnabled(False)
+            self.btnDisconnect.setEnabled(True)
+            if self.ebusReader.streamOpened:
+                self.btnOpenStream.setEnabled(False)
+                self.btnCloseStream.setEnabled(True)
+                for w in [self.editResolution, self.editXYoffset]:
+                    w.setEnabled(False)
+            else:
+                self.btnOpenStream.setEnabled(True)
+                self.btnCloseStream.setEnabled(False)
+            for w in [self.editResolution, self.editXYoffset]:
+                w.setEnabled(True)
 
-    def editMin_editingFinished(self):
+    def editADCblack_editingFinished(self):
         self.updateMinMax()
 
-    def editMax_editingFinished(self):
+    def editADCwhite_editingFinished(self):
         self.updateMinMax()
 
     def updateMinMax(self):
-        self.imgProc.min_val = int((2**self.camera.BPP_DATASTREAM-1)*float(eval(self.editADCblack.text())))
-        self.imgProc.max_val = int((2**self.camera.BPP_DATASTREAM-1)*float(eval(self.editADCwhite.text())))
-        self.updateDisplayedImage()
+        conv_func = lambda x: int(x/100 * (2**self.camera.BPP_DATASTREAM-1))
+        self.imgProc.min_val = conv_func(float(eval(self.editADCblack.text())))
+        self.imgProc.max_val = conv_func(float(eval(self.editADCwhite.text())))
+        try:
+            self.updateDisplayedImage()
+        except TypeError:
+            pass
 
     def chkAvg_clicked(self):
         self.editN_editingFinished()
@@ -317,7 +334,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
         """ Receives a raw image from the ebus reader, sends it through the processing pipeline,
         and updates the various displays from the processed result. """
         # self.histogram.updateData(img) # too slow! need something else (in C++? or just live with min/max?)
-        conv_func = lambda x : (2.0**self.camera.BPP_DATASTREAM-1) * x
+        conv_func = lambda x : 100./(2.0**self.camera.BPP_DATASTREAM-1) * x
         self.lblMinADC.setText('%.1f%%' % (conv_func(np.min(img))))
         self.lblMaxADC.setText('%.1f%%' % (conv_func(np.max(img))))
 
@@ -329,7 +346,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
 
         if processedImage is not None:
             self.updateDisplayedImage(processedImage)
-            self.scrollingPlot.newPoint(np.sum(self.imgProc.I_subtracted))
+            self.scrollingPlot.newPoint(self.camera.convertADCcountsToWatts(np.sum(self.imgProc.I_subtracted)))
 
     def updateDisplayedImage(self, img=None):
         if img is None:
@@ -345,7 +362,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.serialWidget.close()
         self.w.close()
         self.scrollingPlot.close()
-        self.histogram.close()
+        # self.histogram.close()
         event.accept()
 
 def main():

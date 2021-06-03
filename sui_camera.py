@@ -21,7 +21,10 @@ class SUICamera():
 
     EXP_OFFSET = 28 # from manual, section 5.12: EXPPERIOD = (EXP + 28) / (PIXCLK:MAX) (seconds)
     PIXCLK_MAX = 20750000 # read back from the camera once
-    BPP_DATASTREAM = 16 # Output data is scaled so that minimum ADC value maps to 0 and max maps to 2**BPP_DATASTREAM-1
+    BPP_DATASTREAM = 12 # Output data is scaled so that minimum ADC value maps to 0 and max maps to 2**BPP_DATASTREAM-1
+    pixelsX = 640
+    pixelsY = 512
+    adc_gain = 1.0 # todo: put ADC gain in Joules/counts
 
     def __init__(self):
         self.reply_buffer = ''
@@ -110,3 +113,47 @@ class SUICamera():
 
     def countsToSeconds(self, EXP_adjusted):
         return float(EXP_adjusted)/self.PIXCLK_MAX
+
+    def convertADCcountsToWatts(self, adc_counts):
+        """ Converts a value in adc counts units to Watts """
+        try:
+            expo_time = self.getExposure()
+            return adc_counts / (self.adc_gain * expo_time)
+        except:
+            # print('Warning: exposure time unknown. Incorrect scaling will result')
+            return adc_counts # can't properly scale since we don't know the exposure time yet
+
+    def setupWindowing(self, X1, Y1, X2, Y2):
+        """ Applies constraints on the chosen resolution window,
+        then sends the result via the camera's serial port.
+        Returns a tuple containing (resolution_dict, X1, Y1, Y1, Y2),
+        where resolution_dict are settings to be passed to the frame grabber ebus interface's openStream() function,
+        and the rest of the values are after adjustment,
+        or None if the values were grossely incorrect """
+        make_even = lambda x : x + (x % 2)
+        make_odd = lambda x : x + (1-(x % 2))
+        X1 = max(0, X1)
+        Y1 = max(0, Y1)
+        X1 = make_even(X1)
+        Y1 = make_even(Y1)
+        X2 = make_odd(X2)
+        Y2 = make_odd(Y2)
+        X2 = min(X2, self.pixelsX-1)
+        Y2 = min(Y2, self.pixelsY-1)
+
+        resolution_dict = {
+            "Width":       X2-X1+1,
+            "Height":      Y2-Y1+1,
+            "PixelFormat": "Mono12",
+            "TestPattern": "Off",
+            # "TestPattern": "iPORTTestPattern",
+            "PixelBusDataValidEnabled": "1"
+        }
+        # Final sanity check:
+        if (resolution_dict["Width"] > self.pixelsX or resolution_dict["Width"] < 0
+            or resolution_dict["Height"] > self.pixelsY or resolution_dict["Height"] < 0):
+            return None
+        # Everything is good, send it out to the devices:
+        str_cmd = 'WIN:RECT %d %d %d %d\r' % (X1, Y1, X2, Y2)
+        self.writeSerialPort(str_cmd)
+        return (resolution_dict, X1, Y1, X2, Y2)
