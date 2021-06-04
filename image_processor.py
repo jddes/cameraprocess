@@ -46,17 +46,17 @@ class ImageProcessor():
             if 1:#  try:
                 (xcenter, ycenter, radius, taper) = self.ROI
                 full_radius = int((radius + taper))
-                ymin = max(0, ycenter-full_radius)
-                ymax = min(ycenter+full_radius, img.shape[0]-1)
-                xmin = max(0, xcenter-full_radius)
-                xmax = min(xcenter+full_radius, img.shape[1]-1)
+                ymin = int(max(0, ycenter-full_radius))
+                ymax = int(min(ycenter+full_radius, img.shape[0]-1))
+                xmin = int(max(0, xcenter-full_radius))
+                xmax = int(min(xcenter+full_radius, img.shape[1]-1))
                 # apply ROI by croppping
                 cropped_img = img[ymin:ymax, xmin:xmax]
                 if 0 in cropped_img.shape:
                     return img # invalid region, with one empty dimension
                 # apply tapered window/weighting function:
                 self.computeWindowFunction(ycenter, ymin, ymax, xcenter, xmin, xmax, radius, taper) # recomputes only if needed
-                cropped_img = cropped_img * self.window
+                # cropped_img = cropped_img * self.window
                 return cropped_img
             # except:
             #     # we simply don't apply the ROI if it's wrong
@@ -149,6 +149,16 @@ class ImageProcessor():
         y = y[np.logical_and(y >= 0, y <= img_shape[1])]
         return (x, y)
 
+    def getCircleIndices(self, img_shape, x1, y1, diameter):
+        """ returns the x and y indices of a circle centered on (x1, y1) with the given diameter """
+        length = diameter * np.pi
+        t = np.linspace(0, 2*np.pi, int(round(2*length)))
+        x = np.round(x1 + diameter/2*np.cos(t)).astype(np.uint32)
+        y = np.round(y1 + diameter/2*np.sin(t)).astype(np.uint32)
+        x = x[np.logical_and(x >= 0, x <= img_shape[0])]
+        y = y[np.logical_and(y >= 0, y <= img_shape[1])]
+        return (x, y)
+
     def parseAnnotationsCommands(self, text, img_shape):
         """ Adds annotations to an image, described via a simple domain-specific language.
         One command per line, # can be used to indicate comments, list of commands:
@@ -188,6 +198,11 @@ class ImageProcessor():
             if line.startswith('line'):
                 args = [float(s) for s in line.split(' ')[1:]]
                 self.annotations.append((self.getLineIndices(img_shape, *args), color))
+
+
+            if line.startswith('circle'):
+                args = [float(s) for s in line.split(' ')[1:]]
+                self.annotations.append((self.getCircleIndices(img_shape, *args), color))
 
         print(self.annotations)
 

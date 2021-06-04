@@ -50,10 +50,11 @@
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;# comments start with a pound sign&lt;/p&gt;&lt;p&gt;crosshair x y [length]&lt;/p&gt;&lt;p&gt;circle x y diameter&lt;/p&gt;&lt;p&gt;line x1 y1 x2 y2 &lt;/p&gt;&lt;p&gt;color color_name&lt;/p&gt;&lt;p&gt;color r g b&lt;/p&gt;&lt;p&gt;colorname can be 'black, white, red, green, blue, yellow'&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="plainText">
-         <string>crosshair 100 100
+         <string>crosshair 320 256
+circle 320 256 50
 # this changes color for the next commands
 color red
-line 10 50 20 80</string>
+# line 10 50 20 80</string>
         </property>
        </widget>
       </item>
@@ -161,7 +162,7 @@ line 10 50 20 80</string>
       <item row="22" column="1">
        <widget class="QLineEdit" name="editROIcenter">
         <property name="text">
-         <string>100, 50</string>
+         <string>320, 256</string>
         </property>
        </widget>
       </item>
