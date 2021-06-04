@@ -100,7 +100,6 @@ class CameraProcessor(QtWidgets.QMainWindow):
         if reply == '':
             return
 
-        print(repr(reply))
         self.serialWidget.editConsole.appendPlainText(repr(reply))
         if self.camera.newSerialData(reply):
             self.registersUpdated()
@@ -123,8 +122,14 @@ class CameraProcessor(QtWidgets.QMainWindow):
 
     def registersUpdated(self):
         """ Updates the GUI with the new register values. """
-        self.updateLinkedRegistersWidgets(self.widgets_exposure, *self.camera.getExposure())
-        self.updateLinkedRegistersWidgets(self.widgets_frameperiod, *self.camera.getFramePeriod())
+        try:
+            self.updateLinkedRegistersWidgets(self.widgets_exposure, *self.camera.getExposure())
+        except:
+            pass
+        try:
+            self.updateLinkedRegistersWidgets(self.widgets_frameperiod, *self.camera.getFramePeriod())
+        except:
+            pass
 
     def updateLinkedRegistersWidgets(self, widgets, val_counts, val_secs):
         try:

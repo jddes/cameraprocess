@@ -204,7 +204,7 @@ class ImageProcessor():
                 args = [float(s) for s in line.split(' ')[1:]]
                 self.annotations.append((self.getCircleIndices(img_shape, *args), color))
 
-        print(self.annotations)
+        # print(self.annotations)
 
     def addAnnotations(self, img):
         """ Adds annotations to an image, added via parseAnnotationsCommands() """

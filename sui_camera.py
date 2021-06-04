@@ -17,6 +17,55 @@ class linear_map():
     def display_to_reg(self, display_value):
         return (display_value - self.offset)/self.scale
 
+class serialParser():
+
+    def __init__(self, registers_names):
+        self.registers_names = registers_names
+        self.numeric_chars = set(['%01d' % x for x in range(10)])
+        self.expectValue = False
+
+    def parseLine(self, line):
+        """ This should be called every time one full line is received from the camera's serial port.
+        Returns a tuple of (register_name, register_value) if an updated value was seen """
+        assert line[-1] == '\r'
+        assert '\r' not in line[:-1]
+
+        line = line.replace('>', '')
+
+        # print('line = %s' % (repr(line)))
+
+        if self.expectValue:
+            # print('was expecting value')
+            self.expectValue = False
+            for c in line.strip('\r'):
+                if c not in self.numeric_chars:
+                    # print('line was not purely numeric: %s' % repr(c))
+                    return (None, None)
+            new_value = int(line.strip('\r'))
+            # print('new_value = %d' % new_value)
+            return (self.expectedRegister, new_value)
+        else:
+            # print('was NOT expecting value')
+            for reg_name in self.registers_names:
+                if line == reg_name + '?\r':
+                    # print('will expect value for reg %s' % reg_name)
+                    self.expectValue = True
+                    self.expectedRegister = reg_name
+
+        return (None, None)
+
+    def selfTest(self):
+
+        assert self.parseLine('EXP?\r') == (None, None)
+        assert self.parseLine('OK\r') == (None, None)
+
+        assert self.parseLine('EXP?\r') == (None, None)
+        assert self.parseLine('1034\r') == ('EXP', 1034)
+
+        assert self.parseLine('nothing?\r') == (None, None)
+        assert self.parseLine('1034\r') == (None, None)
+
+
 class SUICamera():
 
     EXP_OFFSET = 28 # from manual, section 5.12: EXPPERIOD = (EXP + 28) / (PIXCLK:MAX) (seconds)
@@ -33,6 +82,8 @@ class SUICamera():
         self.reg_scaling = {
             'EXP':          linear_map(1, self.EXP_OFFSET),
             'FRAME:PERIOD': linear_map(1, 0),}
+
+        self.serialParser = serialParser(self.registers.keys())
 
         for reg_name in self.registers:
             assert reg_name in self.reg_scaling
@@ -58,7 +109,7 @@ class SUICamera():
         pos = self.reply_buffer.find('\r')
         while pos != -1:
             full_line = self.reply_buffer[:pos+1]
-            was_updated = was_updated or self.parseSerialOutput(full_line)
+            was_updated = self.parseSerialOutput(full_line) or was_updated
             self.reply_buffer = self.reply_buffer[pos+1:]
             
             pos = self.reply_buffer.find('\r')
@@ -69,14 +120,12 @@ class SUICamera():
         """ Called whenever the device replies one full line on its serial port.
         Will parse out relevant info and update the self.registers values.
         Returns True if any register value was updated as a result """
-        was_updated = False
-        for reg_name in self.registers.keys():
-            header = reg_name + ' '
-            if line.startswith(header):
-                value = int(line[len(header):])
-                self.registers[reg_name] = value
-                was_updated = True
-        return was_updated
+        reg_name, reg_val = self.serialParser.parseLine(line)
+        if reg_name is not None:
+            self.registers[reg_name] = reg_val
+            return True
+        else:
+            return False
 
     def disableAutogain(self):
         """ Turn off all AGC and 'enhancements' features, which ruin any chance at proper power calibration of the adc counts """
@@ -166,3 +215,7 @@ class SUICamera():
         str_cmd = 'WIN:RECT %d %d %d %d\r' % (X1, Y1, X2, Y2)
         self.writeSerialPort(str_cmd)
         return (resolution_dict, X1, Y1, X2, Y2)
+
+if __name__ == '__main__':
+    s = serialParser(['EXP', 'FRAME:PERIOD'])
+    s.selfTest()
