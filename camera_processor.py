@@ -385,6 +385,12 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.lblMinADC.setText('%.1f%%' % (conv_func(np.min(img))))
         self.lblMaxADC.setText('%.1f%%' % (conv_func(np.max(img))))
 
+        if self.radioDemodEven.isChecked() or self.radioDemodOdd.isChecked():
+            img.dtype = np.int16 # this is ok to do with no overflow since the images are actually just 12 bits per pixel
+            demod_phase = self.radioDemodEven.isChecked() ^ ((frame_timestamp % 2) == 1)
+            if demod_phase:
+                img *= -1 # in-place multiply
+
         processedImage = self.imgProc.newImage(self.imgProcPlugin.run(img))
         self.lblProcessingLatency.setText('%.1f ms' % (1e3*(time.perf_counter()-cpu_img_send_timestamp)))
 
