@@ -127,3 +127,75 @@ class ImageProcessor():
         self.file_count += 1
         out_filename = 'images\\avg_%08d.tiff' % self.file_count
         plt.imsave(out_filename, I_save)
+
+    def getColor(self, colorName):
+        color_dict = {
+            'black': (0, 0, 0),
+            'white': (255, 255, 255),
+            'red': (255, 0, 0),
+            'green': (0, 255, 0),
+            'blue': (0, 0, 255),
+            'yellow': (0xff, 0xd7, 0x0),
+        }
+        return color_dict.get(colorName, color_dict['red'])
+
+    def getLineIndices(self, img_shape, x1, y1, x2, y2):
+        """ returns the x and y indices of a line from (x1, y1) to (x2, y2) """
+        length = np.sqrt((x2-x1)**2 + (y2-y1)**2)
+        t = np.linspace(0, 1, int(round(2*length)))
+        x = np.round(t * x1 + (1-t)*x2).astype(np.uint32)
+        y = np.round(t * y1 + (1-t)*y2).astype(np.uint32)
+        x = x[np.logical_and(x >= 0, x <= img_shape[0])]
+        y = y[np.logical_and(y >= 0, y <= img_shape[1])]
+        return (x, y)
+
+    def parseAnnotationsCommands(self, text, img_shape):
+        """ Adds annotations to an image, described via a simple domain-specific language.
+        One command per line, # can be used to indicate comments, list of commands:
+        crosshair x y [length]
+        circle x y diameter
+        line x1 y1 x2 y2 
+        color color_name
+        color r g b
+        colorname can be 'black, white, red, green, blue, yellow'"""
+        default_crosshair_size = max(10, np.min(img_shape) * 0.02)
+
+        self.annotations = list()
+        color = self.getColor('yellow')
+        for line_with_comments in text.split('\n'):
+            ind = line_with_comments.find('#')
+            if ind != -1:
+                line = line_with_comments[:ind-1].strip()
+            else:
+                line = line_with_comments
+
+            if line.startswith('color'):
+                print('color')
+                _, *rest = line.split(' ')
+                if len(rest) == 1:
+                    color = self.getColor(rest[0]) # named color
+                elif len(rest) == 3:
+                    color = (int(float(s)) for s in rest) # rgb tuple
+
+            if line.startswith('crosshair'):
+                args = [float(s) for s in line.split(' ')[1:]]
+                if len(args) == 2:
+                    # no size specified, use default:
+                    args += (default_crosshair_size, )
+                self.annotations.append((self.getLineIndices(img_shape, args[0]-args[2]/2, args[1], args[0]+args[2]/2, args[1]), color))
+                self.annotations.append((self.getLineIndices(img_shape, args[0], args[1]-args[2]/2, args[0], args[1]+args[2]/2), color))
+
+            if line.startswith('line'):
+                args = [float(s) for s in line.split(' ')[1:]]
+                self.annotations.append((self.getLineIndices(img_shape, *args), color))
+
+        print(self.annotations)
+
+    def addAnnotations(self, img):
+        """ Adds annotations to an image, added via parseAnnotationsCommands() """
+        for (indices, color) in self.annotations:
+            try:
+                for color_index, color_component in enumerate(color):
+                    img[indices[1], indices[0], color_index] = color_component
+            except IndexError: # we get this if the image size changed since the annotations were calculated, for example if the user activates software ROI
+                pass

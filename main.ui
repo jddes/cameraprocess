@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>358</width>
-    <height>857</height>
+    <width>357</width>
+    <height>904</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,14 +17,54 @@
    <layout class="QHBoxLayout" name="horizontalLayout">
     <item>
      <layout class="QGridLayout" name="gridLayout">
-      <item row="27" column="1">
+      <item row="34" column="0">
+       <spacer name="verticalSpacer">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>40</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item row="32" column="0">
+       <widget class="QLabel" name="label_23">
+        <property name="text">
+         <string>Annotations (hover for syntax)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="32" column="1">
+       <widget class="QPushButton" name="btnCommitAnnotations">
+        <property name="text">
+         <string>Update Annotations</string>
+        </property>
+       </widget>
+      </item>
+      <item row="33" column="0" colspan="2">
+       <widget class="QPlainTextEdit" name="editAnnotations">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;# comments start with a pound sign&lt;/p&gt;&lt;p&gt;crosshair x y [length]&lt;/p&gt;&lt;p&gt;circle x y diameter&lt;/p&gt;&lt;p&gt;line x1 y1 x2 y2 &lt;/p&gt;&lt;p&gt;color color_name&lt;/p&gt;&lt;p&gt;color r g b&lt;/p&gt;&lt;p&gt;colorname can be 'black, white, red, green, blue, yellow'&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="plainText">
+         <string>crosshair 100 100
+# this changes color for the next commands
+color red
+line 10 50 20 80</string>
+        </property>
+       </widget>
+      </item>
+      <item row="28" column="1">
        <widget class="QLineEdit" name="editADCblack">
         <property name="text">
          <string>0</string>
         </property>
        </widget>
       </item>
-      <item row="22" column="1">
+      <item row="23" column="1">
        <layout class="QHBoxLayout" name="horizontalLayout_2">
         <item>
          <widget class="QLineEdit" name="editROIradius">
@@ -42,7 +82,7 @@
         </item>
        </layout>
       </item>
-      <item row="16" column="1">
+      <item row="17" column="1">
        <widget class="QLineEdit" name="editN">
         <property name="maximumSize">
          <size>
@@ -55,111 +95,98 @@
         </property>
        </widget>
       </item>
-      <item row="17" column="1">
+      <item row="18" column="1">
        <widget class="QPushButton" name="btnBck">
         <property name="text">
          <string>Set as bkg img</string>
         </property>
        </widget>
       </item>
-      <item row="16" column="0">
+      <item row="17" column="0">
        <widget class="QCheckBox" name="chkAvg">
         <property name="text">
          <string>Average frames:</string>
         </property>
        </widget>
       </item>
-      <item row="19" column="1">
+      <item row="20" column="1">
        <widget class="QPushButton" name="pushButton_3">
         <property name="text">
          <string>Save N images</string>
         </property>
        </widget>
       </item>
-      <item row="18" column="0">
+      <item row="19" column="0">
        <widget class="QLabel" name="label">
         <property name="text">
          <string>Images to save:</string>
         </property>
        </widget>
       </item>
-      <item row="17" column="0">
+      <item row="18" column="0">
        <widget class="QCheckBox" name="chkSubtract">
         <property name="text">
          <string>Subtract bck img</string>
         </property>
        </widget>
       </item>
-      <item row="22" column="0">
+      <item row="23" column="0">
        <widget class="QLabel" name="label_7">
         <property name="text">
          <string>ROI diameter and taper size [pixels]</string>
         </property>
        </widget>
       </item>
-      <item row="18" column="1">
+      <item row="19" column="1">
        <widget class="QLineEdit" name="lineEdit">
         <property name="text">
          <string>60</string>
         </property>
        </widget>
       </item>
-      <item row="19" column="0">
+      <item row="20" column="0">
        <widget class="QPushButton" name="pushButton_2">
         <property name="text">
          <string>Save 1 image</string>
         </property>
        </widget>
       </item>
-      <item row="20" column="0" colspan="2">
+      <item row="21" column="0" colspan="2">
        <widget class="QCheckBox" name="chkROI">
         <property name="text">
          <string>Crop image to Region-Of-Interest (software ROI)</string>
         </property>
        </widget>
       </item>
-      <item row="21" column="1">
+      <item row="22" column="1">
        <widget class="QLineEdit" name="editROIcenter">
         <property name="text">
          <string>100, 50</string>
         </property>
        </widget>
       </item>
-      <item row="23" column="1">
+      <item row="24" column="1">
        <widget class="QLineEdit" name="editFramesInScrolling">
         <property name="text">
          <string>300</string>
         </property>
        </widget>
       </item>
-      <item row="21" column="0">
+      <item row="22" column="0">
        <widget class="QLabel" name="label_6">
         <property name="text">
          <string>ROI X,Y center [pixels]</string>
         </property>
        </widget>
       </item>
-      <item row="23" column="0">
+      <item row="24" column="0">
        <widget class="QLabel" name="label_8">
         <property name="text">
          <string>Frames in scrolling plot</string>
         </property>
        </widget>
       </item>
-      <item row="31" column="1">
-       <spacer name="verticalSpacer">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>40</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item row="24" column="0" colspan="2">
+      <item row="25" column="0" colspan="2">
        <layout class="QGridLayout" name="gridLayout_2">
         <item row="2" column="2">
          <widget class="QLabel" name="lblExposureMSActual">
@@ -295,6 +322,13 @@
         </property>
        </widget>
       </item>
+      <item row="7" column="1">
+       <widget class="QLabel" name="lblProcessingLatency">
+        <property name="text">
+         <string>TextLabel</string>
+        </property>
+       </widget>
+      </item>
       <item row="4" column="1">
        <widget class="QLineEdit" name="editXYoffset">
         <property name="text">
@@ -320,6 +354,13 @@
        <widget class="QLabel" name="lblTargetDistance">
         <property name="text">
          <string>Target distance [m]</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0">
+       <widget class="QLabel" name="label_22">
+        <property name="text">
+         <string>Processing latency [ms]</string>
         </property>
        </widget>
       </item>
@@ -365,7 +406,7 @@
         </property>
        </widget>
       </item>
-      <item row="26" column="0">
+      <item row="27" column="0">
        <widget class="QLabel" name="label_16">
         <property name="text">
          <string>Min value [% of ADC counts]</string>
@@ -379,7 +420,7 @@
         </property>
        </widget>
       </item>
-      <item row="30" column="1">
+      <item row="31" column="1">
        <widget class="QPushButton" name="btnAutoscale">
         <property name="text">
          <string>Autoscale display</string>
@@ -400,7 +441,7 @@
         </property>
        </widget>
       </item>
-      <item row="27" column="0">
+      <item row="28" column="0">
        <widget class="QLabel" name="label_19">
         <property name="text">
          <string>ADC value mapped to black [%]</string>
@@ -428,61 +469,82 @@
         </property>
        </widget>
       </item>
-      <item row="29" column="0">
+      <item row="30" column="0">
        <widget class="QLabel" name="label_21">
         <property name="text">
          <string>Max value [% of ADC counts]</string>
         </property>
        </widget>
       </item>
-      <item row="25" column="0" colspan="2">
+      <item row="26" column="0" colspan="2">
        <widget class="Line" name="line_3">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
         </property>
        </widget>
       </item>
-      <item row="29" column="1">
+      <item row="30" column="1">
        <widget class="QLabel" name="lblMaxADC">
         <property name="text">
          <string>TextLabel</string>
         </property>
        </widget>
       </item>
-      <item row="28" column="1">
+      <item row="29" column="1">
        <widget class="QLineEdit" name="editADCwhite">
         <property name="text">
          <string>100</string>
         </property>
        </widget>
       </item>
-      <item row="28" column="0">
+      <item row="29" column="0">
        <widget class="QLabel" name="label_20">
         <property name="text">
          <string>ADC value mapped to white [%]</string>
         </property>
        </widget>
       </item>
-      <item row="26" column="1">
+      <item row="27" column="1">
        <widget class="QLabel" name="lblMinADC">
         <property name="text">
          <string>TextLabel</string>
         </property>
        </widget>
       </item>
-      <item row="7" column="0">
-       <widget class="QLabel" name="label_22">
-        <property name="text">
-         <string>Processing latency [ms]</string>
-        </property>
-       </widget>
-      </item>
-      <item row="7" column="1">
-       <widget class="QLabel" name="lblProcessingLatency">
-        <property name="text">
-         <string>TextLabel</string>
-        </property>
-       </widget>
+      <item row="16" column="0" colspan="2">
+       <layout class="QHBoxLayout" name="horizontalLayout_3">
+        <item>
+         <widget class="QLabel" name="label_24">
+          <property name="text">
+           <string>Demod:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="radioDemodOff">
+          <property name="text">
+           <string>Off</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="radioDemodEven">
+          <property name="text">
+           <string>even-odd</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="radioDemodOdd">
+          <property name="text">
+           <string>odd-even</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
      </layout>
     </item>

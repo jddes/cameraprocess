@@ -379,7 +379,7 @@ class CameraProcessor(QtWidgets.QMainWindow):
         """ Receives a raw image from the ebus reader, sends it through the processing pipeline,
         and updates the various displays from the processed result. """
         # self.histogram.updateData(img) # too slow! need something else (in C++? or just live with min/max?)
-        self.logTimestamps(frame_timestamp)
+        # self.logTimestamps(frame_timestamp)
         self.checkDroppedFrames(frame_timestamp)
         conv_func = lambda x : 100./(2.0**self.camera.BPP_DATASTREAM-1) * x
         self.lblMinADC.setText('%.1f%%' % (conv_func(np.min(img))))
@@ -392,7 +392,11 @@ class CameraProcessor(QtWidgets.QMainWindow):
             self.status_bar_fields["pb"].setValue(self.imgProc.N_progress)
 
         if processedImage is not None:
-            self.updateDisplayedImage(processedImage)
+            self.processedImage = processedImage
+            if not hasattr(self.imgProc, 'annotations'):
+                self.btnCommitAnnotations_clicked() # parse the annotations at the first image
+            self.imgProc.addAnnotations(self.processedImage)
+            self.updateDisplayedImage(self.processedImage)
             self.scrollingPlot.newPoint(self.camera.convertADCcountsToWatts(np.sum(self.imgProc.I_subtracted)))
 
     def updateDisplayedImage(self, img=None):
@@ -411,6 +415,10 @@ class CameraProcessor(QtWidgets.QMainWindow):
         self.scrollingPlot.close()
         # self.histogram.close()
         event.accept()
+
+    def btnCommitAnnotations_clicked(self):
+        text = self.editAnnotations.toPlainText()
+        self.imgProc.parseAnnotationsCommands(text, self.processedImage.shape[0:2]) # image is MxNx3 due to RGB
 
 def main():
 
